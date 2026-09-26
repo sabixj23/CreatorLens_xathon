@@ -1,610 +1,241 @@
-# CreatorLENS — Build Specification
+# CreatorLENS — Complete Spec (everything discussed, full reasoning, full split)
 
-## 1. Product objective
+## 0. What this document is
 
-Build a Next.js application that helps emerging creators improve short videos before publishing to YouTube Shorts, Instagram Reels, or TikTok.
+Every decision below was actually debated and resolved during planning — not just the "what," but the "why," because the why is what keeps two people building in parallel from drifting apart. Read this once fully before splitting up.
 
-Creators upload a video of up to 90 seconds, specify their target audience and goal, and receive:
+## 1. Product vision and positioning
 
-- A visual and audio review with clickable timestamps.
-- Strong moments worth preserving.
-- Weak moments with specific improvement suggestions.
-- An interactive coach that understands the uploaded video.
-- Relevant trend inspiration, caption ideas, and hashtags.
-- Personal history containing previous reviews, saved advice, and trends used.
-- Post-publishing analysis that uses actual video performance to personalise future coaching.
+One-liner: A human growth strategist costs SGD 800–2,500/month in Singapore. CreatorLENS gives a creator the analytical half of that job for ~SGD 30/month — plus something no human strategist offers: a simulated 12-week growth plan tested before the creator commits 8+ weeks of real effort to it.
 
-**Core promise:** Show creators what is happening in their video, explain how it supports or weakens their intended message, and help them make a better next version.
+Target user: plateaued creators, roughly 50k–200k subscribers, with 1–3 years of posting history. Explicitly not 0–10k creators (spec's own reasoning: too little data, too little willingness to pay) and not managed 1M+ creators (already have a real team).
 
-## 2. Product foundation:
+### Why this specific stage, reasoned out fully
 
-Use sampled visual evidence, audio signals, and optional transcription into a shared event index. Search, review, coaching, and edit planning reuse this evidence, with validated references back to the footage.
+Getting from 50k–200k to 1M+ almost never comes from posting more of the same — whatever produced the initial growth (an early viral hit, a lucky format) has usually stopped working, which is why they've plateaued. The next step up requires a real strategic pivot (format shift, platform shift, audience shift), which is a genuinely risky decision at this size — a 150k-subscriber creator has a real audience to lose if the pivot is wrong, unlike a 5k creator who can experiment freely.
 
-### CreatorLENS adaptation
-Timestamped record of shots, speech, text, demonstrations, and audio events
-Creator review covering visual communication, hook, pacing, clarity, and payoff |
-Ask Coach : Video-specific improvement advice and follow-up questions |
-Attention : How well the video is based on: interesting, captivating, enriching etc
-Moments search | Find strong openings, confusing sections, repetitions, and useful demonstrations |
-Director’s Cut | Suggested cut order and revised opening |
-Session experience | Saved reviews and ongoing creator history |
-Post Analysis | Based on the actual performance of the video, our app can improve and personalise to the creator to help them cater to their audience better.
+The product's core mechanism (a walk-forward backtest against the creator's own real history) requires 1–3 years of data to mean anything. A 5k-subscriber channel doesn't have enough history to backtest against; a 100k+ channel does. The target segment isn't arbitrary — it's the minimum viable segment for the model to be honest rather than a guess.
 
-Build CreatorLENS as a creator-focused product.
+The "simulate before you commit" value proposition matters more here than at any other stage, because the cost of guessing wrong is highest here.
 
-## 3. Audience and supported content
+### Competitive positioning (from direct research into the current market)
 
-Initial users are emerging creators making:
+- Analytics dashboards (vidIQ, TubeBuddy): tell you what already happened, not what to do.
+- Hook/retention scorers (Go Viral, CopyBoss, SeenAI, OpusClip): judge one video in isolation, no ongoing strategy, and their virality scores are independently reported as unreliable (a 40-scored clip regularly outperforms an 85-scored one — nobody in this space publishes real accuracy numbers).
+- Autopilot content generators (Klap, Opus): make content, not decisions.
+- Named direct competitor: NEXORA — connects via OAuth, analyzes what happened, advises what to post next. We differ by projecting forward (simulation) instead of only analyzing backward, and by recalibrating against this creator's own real results instead of generic niche benchmarks.
 
-- Tips and educational explainers.
-- Product demonstrations and reviews.
-- Talking-head videos with supporting footage.
-- Simple visual tutorials.
-- Day in the life, Cooking, etc
+Our actual differentiator, stated honestly: not "we use GPT," not "we predict virality" — it's the closed loop: real historical data → derive a strategy → simulate alternatives with stated trade-offs → creator posts → measure real results → recalibrate. Nobody else in this space closes that loop, and nobody else is willing to say "we will not display an accuracy number" when they don't have one yet.
 
-Support one primary language initially: English.
-Next scope: Tamil, Chinese etc
+### Business model reasoning
 
-Accept videos between 5 and 90 seconds. Support portrait, square, and landscape footage, with the interface optimised for portrait video.
+One human strategist serves ~10 clients; the model serves effectively unlimited clients at near-zero marginal cost — that's why SGD 30/month is viable against an SGD 800–2,500/month freelance rate (30–80× cheaper), sourced from real 2026 Singapore freelancer/agency rate data.
 
-Proposed initial format: MP4 with H.264 video and optional AAC audio, up to 150 MB. Validate actual decoding support and duration before analysis.
+Position explicitly as augmentation, not replacement: we do performance analysis, content planning, platform mechanics, simulation+projection; the creator still owns brand negotiations, creative taste, community relationships, and the final call. This pre-empts the obvious "AI can't replace a strategist" objection rather than overclaiming and getting caught on it.
 
-Silent videos remain supported through visual analysis.
+Team-fit note (needs your own input, not fabricated): the strongest "why us" material that's actually true right now is behavioral, not biographical — the team caught its own flawed assumption (that a 20-comparable-channel backtest was buildable, when the YouTube API can't actually provide that) before a judge could, deliberately pivoted off a working MVP when a bigger opportunity was clear, and repeatedly rejected flashier-but-dishonest options (a fabricated content score, a fake accuracy %) in favor of the harder, honest version. What's missing and only you can supply: does anyone on the team have real audience-growth, data/ML, or founder experience? Don't invent this for the deck — write down what's actually true.
 
-## 4. Application structure
+## 2. Non-negotiable design principles (apply to every screen, both tracks)
 
-Primary navigation:
+This is the actual product philosophy, repeated because it's easy to erode under time pressure:
 
-**Home · Trends · History · Post Analysis**
+- Claim → Evidence → Recommendation. Never a bare claim.
+- Every projection states its assumptions and its uncertainty. "A modelled trajectory based on your historical relationship between cadence, format mix, and growth" — explicitly labelled a scenario, not a forecast. Never a bare number like "you'll reach 150,000 subscribers."
+- Every recommendation answers "why," with a real number behind it. "Because Format A generated 2.3× the subscriber conversion of your channel average across 27 videos" — not "make more of this."
+- Never show a fabricated number. No virality scores, no invented percentages, no accuracy claim before it's measured. backtest is null until real — never a placeholder 0, because 0 reads as a claim of perfect accuracy. Every mocked element is visibly labelled, never presented as live.
 
-Each video opens a workspace containing:
+## 3. Architecture — full reasoning, not just the diagram
 
-**Review · Coach · Post ideas**
+Next.js (App Router) + TypeScript, one app, no separate backend service, no database. State lives in Auth.js JWT session cookies, a dedicated demo-unlock cookie readable by the API, and localStorage for the chosen path only.
 
-### Home `/`
+Auth: Google OAuth via Auth.js (next-auth v5). Scopes: openid email profile https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly, plus access_type=offline&prompt=consent so a refresh token is actually issued. Why this matters concretely: Auth.js v5 does not auto-refresh expired access tokens — someone has to write that into the jwt callback (check expires_at, call Google's token endpoint with the stored refresh_token), or a session prepared ahead of the demo silently dies by the time judges see it.
 
-The main landing page and its main action is **Analyse your video, take a preflight**.
+The key data-availability constraint that shaped the whole simulation design: YouTube Analytics API (real day-level watch time, subscribers gained/lost) only works for a channel the signed-in user owns. It is not available for comparable/competitor channels — there is no way to retrieve another channel's subscriber count from 3 months ago via any official API. This is why the original spec idea ("backtest against 20 real channels, predict month 4 from month 1") is not buildable as literally described — that historical data doesn't exist for channels you don't own.
 
-Collect:
+Resolution: self-backtest against the creator's own real history instead. lib/simulation.ts walks forward week by week through the creator's own past data (not one fixed train/test split) — pick a past week, predict forward from it using the model fitted on earlier weeks, compare to what actually happened to them. This is both fully real and arguably a stronger, more personal demo line than "tested on 20 other channels."
 
-- Video file.
-- Intended platform.
-- Topic or niche.
-- Target audience.
-- Goal: educate, entertain, encourage saves, or encourage follows.
-- Optional concerns: “Does my opening catch attention?” - can have some suggested options buttons
-- Optional preferences: “Keep my relaxed style.” - can have some suggested options buttons
+Comparable channels (public Data API v3 only — channels.list + videos.list, no OAuth needed) supply only current snapshot metrics (views, likes, cadence, format mix) — used as descriptive support for a path's trade-off text ("channels in this niche that shifted this heavily toward Shorts show weaker long-form retention"), never as an input to a subscriber-count prediction.
 
-Show recent analyses beneath the upload area.
+Comparable data is precomputed once into a committed JSON fixture (lib/data/comparables.json, 5–8 channels in one niche) via a one-off script, not live-fetched per request — removes quota/latency risk from the live demo without making the model fake.
 
-The creator can preview the video and edit the brief before starting.
+The 12-week horizon vs. short-term accuracy tension, resolved: the spec's stated differentiator is a 12-week simulation, and that's kept because content-strategy effects are slow-compounding — a 2-week window wouldn't show three strategies diverging meaningfully. But a regression fit on a small amount of a single creator's own weekly data can't honestly claim precision 12 weeks out. Resolution: show the 12-week chart with a widening confidence band — tight/specific for the next 1–2 weeks, visibly vaguer further out (same pattern as weather forecasting: precise for tomorrow, directional for day 10). The actionable, backtested claim only ever applies to the short range; the rest of the 12-week line is explicitly "where this path leads if nothing changes," not a guarantee.
 
-### Video workspace `/videos/[id]`
+AI calls are deliberately consolidated. /api/diagnose is one OpenAI call (store: false) that returns diagnosis, Content DNA, content ideas, and hook variants together, specifically to stay inside the ~30-second value window the spec requires and to avoid multiple round trips on the screen the demo lingers on. weeklyActions (the per-week action list) is templated, not LLM-generated, for the same reason — the frontend fetches all 3 paths in parallel on /dashboard/plan, and LLM-generated actions there would mean 3 OpenAI round-trips on that exact screen.
 
-Desktop layout:
+Trend-awareness is deliberately lightweight, not a separate system. A fuller architecture was proposed (a dedicated trend-ingestion engine across platforms, an LLM router tiered by task complexity, a RAG layer, per-video content analysis, multi-audience content remixing) — genuinely good long-term product thinking, but each piece is a multi-day build on its own and none of it fits the hackathon window. What ships: folding each comparable channel's recent top-performing video titles/topics into the diagnosis prompt as "what's working in this niche right now" context. The fuller vision is preserved as roadmap/pitch material (§13), explicitly separated from build scope so it's never mistaken for a commitment.
+
+## 4. Complete feature list, with the reasoning behind each
 
-- Left: video player and clickable timeline.
-- Right: review, coach, or post ideas.
-- Below: evidence cards and improvement checklist.
-
-On mobile, show the player above the selected panel.
-
-Keep the player available when switching between review and coaching.
-
-### Trends `/trends`
-
-Display relevant examples and formats, with platform and niche filters.
-Pull from relevant apis like youtube, tiktok, instagram if possible.
-
-### History `/history`
-
-Display previous videos, saved advice, action status, and trends the creator marked as used.
-
-### Post Analysis `/personalise`
-
-Help creators learn from how their published videos actually performed and use those results to personalise future reviews and coaching for their audience.
-
-Page heading: **Post Analysis**
-
-Page introduction: “See what resonated with your audience. Add your published video’s results to get personalised suggestions for your next video.”
-
-Place this page immediately after History in the primary navigation. Allow creators to open it from a saved video in History with **Add performance**.
-
-#### Add published results
-
-Select a previously analysed video and record:
-
-- Published post URL, platform, and publication date.
-- Performance measurement date, so results have a clear observation window.
-- Available views, likes, comments, shares, saves, and follows attributed to the post.
-- Average watch time, completion rate, and audience-retention data, when available.
-- Optional audience feedback and creator notes about changes made before publishing.
-- Which saved suggestions were actually applied.
-
-For the hackathon, support manual entry from the creator’s platform analytics. Label these results **Creator-reported**. Automated imports are a later feature, subject to verified platform access; do not imply that pasting a post URL retrieves private analytics.
-
-Require a platform, publication date, measurement date, and at least one performance metric. Keep unavailable metrics empty rather than treating them as zero. Validate non-negative counts, percentages from 0–100, and a measurement date no earlier than publication. Allow additional dated snapshots without overwriting earlier results.
-
-#### Page content
-
-- **Performance overview:** Show the selected post’s reported metrics, source, measurement date, and time since publishing. Display a retention chart only when actual retention data is provided.
-- **What resonated:** Relate available results and audience feedback to the video’s hook, pacing, topic, format, and payoff. Link video-specific observations to the original review evidence.
-- **Audience patterns:** Compare the creator’s own posts on the same platform at similar times since publishing. Show the posts and metrics supporting each pattern; explain when there is too little comparable data.
-- **Try in your next video:** Offer up to three practical experiments aligned with the creator’s goal, such as testing an earlier demonstration or a shorter opening. Let the creator save them as actions.
-- **Your personalisation:** Show the audience preferences and content patterns proposed for future coaching. Let the creator confirm, edit, or remove them, and turn their use in future recommendations on or off.
-
-Primary actions: **Add performance · Save results · Save next-video action**.
-
-Empty state: “Published a video? Add its results to start learning what your audience responds to.” If History is empty, offer **Analyse your first video** linking to Home.
-
-#### How personalisation works
-
-Combine saved performance snapshots, the original review, the creator’s stated audience and goal, and confirmed applied changes to suggest what to test next. Use only creator-confirmed insights in future reviews, Coach responses, and Post ideas when personalisation is enabled.
-
-Distinguish measured results from possible explanations. Aggregate views or watch time cannot establish a timestamped audience drop-off or prove that an edit caused an improvement. Treat patterns from limited data as tentative and do not promise future performance.
-
-Keep the creator’s preferred style visible when suggesting changes. Each personalised recommendation should explain which saved results informed it.
-
-## 5. Video analysis: mandatory capabilities
-
-**A transcript-only review does not satisfy this specification.**
-
-The analysis must examine visual evidence and its relationship to speech and audio timing.
-
-| Dimension | What to inspect |
-|---|---|
-| Visual opening | What appears first; whether the subject, problem, or outcome is understandable |
-| Framing | Subject visibility, distracting composition, cropped demonstrations |
-| On-screen text | Readability, placement, visible wording, and approximate display duration |
-| Visual storytelling | Whether footage demonstrates or supports the message |
-| Editing and pacing | Shot changes, static stretches, repetition, and pauses |
-| Speech | Message, structure, clarity, and repeated information |
-| Audio signals | Silence, level changes, and potential clipping |
-| Cross-modal alignment | Whether visible evidence matches what is being said |
-| Payoff | Whether the promised result is shown or explained |
-| Ending | Whether the video resolves its main point and provides a relevant next step |
-
-Only make claims supported by the available evidence.
-
-Sampled frames cannot establish precise motion, lip synchronisation, or everything that happened between samples. Flag uncertainty and request denser inspection when needed.
-
-Audio levels alone cannot establish that music masks speech. Such a conclusion needs suitable audio analysis; otherwise describe only the measured level issue.
-
-## 6. Analysis pipeline
-
-### A. Inspect the file
-
-Read duration, dimensions, orientation, audio presence, and decoding compatibility.
-
-Reject invalid or oversized files before calling a paid API.
-
-Generate a content hash for identifying the video and avoiding accidental duplicate analysis.
-
-### B. Extract evidence in the browser
-
-Use a browser media library, such as the approach demonstrated by UNSEEN, for local decoding and extraction.
-
-Initial sampling policy:
-
-- One baseline frame per second.
-- Two frames per second during the opening five seconds.
-- Additional frames around detected scene changes.
-- Denser frames around selected moments that need clarification.
-- Maximum 160 unique frames per video for the initial version.
-
-Resize frames for efficient analysis while preserving readable text. Retain access to higher-resolution local frames for targeted inspection.
-
-Extract:
-
-- Timestamped JPEG frames.
-- Basic audio-level and silence measurements.
-- Audio chunks for transcription.
-- A local thumbnail and video metadata.
-
-Keep the original video local. Send only the frames, audio intervals, and supporting context needed for the requested analysis, following the privacy requirements in section 14. Show what will leave the device before sending it.
-
-### C. Transcribe speech
-
-Use a transcription adapter that returns timestamped segments.
-
-Do not estimate word timestamps by distributing words evenly across a sentence. Use actual alignment where supported; otherwise retain segment-level timing.
-
-If the video contains no speech, proceed without a transcript.
-
-If transcription fails, offer a clearly labelled visual-only review rather than silently presenting a complete multimodal result.
-
-### D. Analyse short windows
-
-Divide the video into 10-second windows with approximately two seconds of overlap.
-
-Each model request receives:
-
-- Ordered frames with application-generated IDs and timestamps.
-- Relevant transcript segments.
-- Audio measurements.
-- Creator brief.
-- A structured output schema.
-
-Limit concurrent requests to three initially.
-
-The model returns observations referencing supplied evidence IDs. The application owns timestamps; the model must not invent them.
-
-### E. Merge the evidence
-
-Deduplicate observations from overlapping windows.
-
-Create one versioned record of:
-
-- Shots and scene changes.
-- Visible actions and demonstrations.
-- On-screen text.
-- Speech segments.
-- Audio measurements.
-- Strong moments.
-- Possible attention risks.
-- Uncertainties and missing coverage.
-
-### F. Generate the review
-
-Use the merged record to produce:
-
-- Brief overall assessment.
-- Up to three strong moments.
-- Up to three priority improvements.
-- Component ratings.
-- One next-recording exercise.
-- An optional proposed cut order.
-
-Every video-specific critique must link to evidence.
-
-### G. Reuse the record
-
-The coach, moment search, and post-idea generation use the existing record.
-
-If a follow-up requires detail absent from the record, inspect a bounded set of additional frames from that interval. Do not rerun the entire video automatically.
-
-## 7. Evidence and output contracts
-
-Use TypeScript types and runtime validation for every model response.
-
-| Entity | Required fields |
-|---|---|
-| Video | ID, content hash, duration, dimensions, platform, audience brief |
-| Evidence | ID, modality, start/end time, source reference, observed content |
-| Observation | ID, category, evidence IDs, description, uncertainty |
-| Finding | ID, strength/risk, observation IDs, interpretation, suggested action, priority |
-| Review | Findings, component ratings, practice exercise, coverage |
-| Analysis run | Provider, model, prompt version, schema version, status, usage |
-| Trend | Platform, source URL, collection method, checked date, topic, supported claim |
-| Saved action | Finding ID, creator note, status, updated date |
-
-Separate three things in the data and interface:
-
-1. **Observation:** “The result first appears at 0:18.”
-2. **Interpretation:** “The audience waits before seeing the promised outcome.”
-3. **Suggestion:** “Test a brief result preview in the opening.”
-
-Reject unknown evidence references and out-of-range timestamps. Unsupported findings should be removed or marked inconclusive.
-
-Video text, transcripts, and external trend content are untrusted input, never instructions to the application.
-
-## 8. Review experience
-
-The timeline uses labelled markers for:
-
-- Strength.
-- Improvement opportunity.
-- Audio or text issue.
-- Selected coach reference.
-
-Selecting a card seeks to slightly before the relevant moment and highlights its interval.
-
-Each card includes:
-
-- Timestamp.
-- Observation.
-- Why it matters for the stated audience.
-- Suggested change.
-- Evidence or thumbnail.
-
-Avoid relying on colour alone.
-
-Example:
-
-**0:18–0:22 — Strong demonstration**
-
-“The split-screen makes the difference between the two products visible. Consider showing a short preview of this comparison in your opening.”
-
-### Scorecard
-
-Rate these dimensions from 1–5 using a versioned rubric:
-
-- Opening.
-- Visual communication.
-- Clarity and structure.
-- Pacing.
-- Payoff.
-
-Each rating requires supporting findings. Use **Not assessed** when coverage is insufficient.
-
-Audience fit is a separate qualitative assessment based on the creator’s stated audience.
-
-If all five dimensions are assessable, the application may calculate an overall readiness score by converting their mean to a 100-point scale. Label it **AI coaching assessment**.
-
-Do not display predicted views, viral probabilities, or a fabricated audience-retention graph.
-
-## 9. Coach
-
-The coach receives the current video record, brief, review, selected moment, and bounded conversation history.
-
-Support requests such as:
-
-- “Why does this section feel slow?”
-- “Find my strongest visual moment.”
-- “Suggest three openings using footage I already have.”
-- “What could I cut to reach 30 seconds?”
-- “How can I explain this for beginners?”
-- “Help me adapt this saved trend.”
-
-Video-specific statements must cite clickable moments.
-
-Distinguish suggestions that use existing footage from those requiring a reshoot.
-
-Allow creators to save advice as an action:
-
-**To try · Applied · Skipped**
-
-Previous history can inform coaching only through explicit saved information. Do not assume a creator implemented a suggestion merely because it was shown.
-
-## 10. Captions, hashtags, and edit ideas
-
-The Post ideas panel generates:
-
-- Three post-caption options.
-- Two alternative opening scripts.
-- A small set of relevant hashtags.
-- One suggested call to action.
-- An optional cut list.
-
-Label written post captions separately from on-screen subtitles.
-
-Generated ideas must remain faithful to the video’s content. Do not invent product claims or promise performance improvements.
-
-Only call a hashtag “trending” when there is current supporting source data.
-
-The cut list contains valid source intervals and a proposed order. Editing and downloadable video export are stretch features.
-
-## 11. Trends page
-
-### Initial data strategy
-
-**YouTube:** Use the Data API for topic-based discovery and available metadata.
-
-**TikTok and Instagram:** Use a curated reference collection for the hackathon. Add automated providers later when access and coverage are verified.
-
-Do not make unapproved cross-platform data access a launch dependency.
-
-Each card includes:
-
-- Title and platform.
-- Topic or format.
-- Example link.
-- Source and date checked.
-- Available metrics with their retrieval date.
-- Collection label: API discovery or curated reference.
-- Suggested adaptation for the selected video.
-
-Actions:
-
-**Save · Apply to my video · Mark as used**
-
-“Apply to my video” opens the coach with the trend and current video evidence.
-
-Metadata-only sources support topic and title analysis. They do not establish visual editing patterns or spoken hooks. Those claims require reviewed media or clearly attributed editorial notes.
-
-A single popular example is not proof of a rising trend. Display growth only when comparable measurements support it.
-
-If a source fails, show the last successful snapshot with its date. Never replace missing data with fabricated metrics.
-
-## 12. Personal history
-
-Persist:
-
-- Video metadata and thumbnail.
-- Brief and completed reviews.
-- Evidence record.
-- Coach conversations.
-- Saved actions.
-- Saved and used trends.
-- Published post details and dated performance snapshots, including their source.
-- Creator-confirmed audience insights and the personalisation preference.
-- Analysis model and rubric version.
-
-For the hackathon, use IndexedDB for same-browser persistence.
-
-Do not persist raw videos by default. After reopening a saved review, ask the creator to reselect the original file for playback and verify its hash.
-
-Explain that history is stored on this device and can be lost if browser data is cleared.
-
-Provide delete-video and clear-history actions. Account-based cloud sync is a later feature.
-
-Post Analysis uses the same device-local storage. Allow performance snapshots and confirmed insights to be edited or deleted. Deleting a video also removes its linked performance data and invalidates insights that depended on it; clearing history resets personalisation.
-
-A revised video creates a new record linked to its predecessor. Never overwrite the original analysis.
-
-## 13. Next.js implementation
-
-Use:
-
-- Next.js App Router.
-- TypeScript.
-- React client components for playback, extraction, timeline, and local storage.
-- Tailwind CSS and accessible UI components.
-- Next.js Route Handlers for AI and trend requests.
-- Zod or an equivalent runtime schema validator.
-- IndexedDB for local history.
-- Provider-specific SDKs behind a shared application interface.
-
-Suggested organisation:
-
-| Area | Responsibility |
-|---|---|
-| `app/` | Pages, layouts, and API routes |
-| `components/video/` | Player, upload, timeline, evidence cards |
-| `components/coach/` | Chat and cited responses |
-| `lib/media/` | Decode, sample frames, audio measurements, hashing |
-| `lib/analysis/` | Window scheduling, merge, validation, scoring |
-| `lib/ai/` | OpenAI and Anthropic adapters |
-| `lib/trends/` | Sources, normalisation, caching |
-| `lib/storage/` | Local history and migrations |
-| `lib/schemas/` | Shared request and response contracts |
-
-Suggested API routes:
-
-- `POST /api/transcribe`
-- `POST /api/analyse/window`
-- `POST /api/analyse/review`
-- `POST /api/coach`
-- `POST /api/post-ideas`
-- `GET /api/trends`
-
-Keep work bounded per request. The browser coordinates windows and saves completed results so failed windows can be retried independently.
-
-Configure payload limits below the chosen host’s limits. Send resized frames and bounded audio chunks, not the complete video in one Next.js request.
-
-Public deployment requires authenticated access or a server-validated restricted demo session, rate limits, and spend limits. Local development may use a development-only bypass.
-
-## 14. AI provider strategy
-
-Create a shared interface for:
-
-- Window analysis.
-- Review generation.
-- Coach responses.
-- Post ideas.
-
-Implement one provider first and keep the second interchangeable.
-
-**OpenAI path:** Image-capable model for frame analysis and reasoning, plus a timestamp-capable transcription model.
-
-**Claude path:** Image-capable model for frame analysis and reasoning, plus a separate transcription provider or locally hosted transcription service.
-
-OpenAI and Claude both document image-input capabilities. This design uses timestamped frame sequences rather than assuming either selected model accepts and fully analyses an MP4 directly. See [OpenAI vision](https://developers.openai.com/api/docs/guides/images-vision), [OpenAI transcription](https://developers.openai.com/api/docs/guides/speech-to-text), and [Claude vision](https://platform.claude.com/docs/en/build-with-claude/vision).
-
-Choose exact model IDs after confirming available API credits and testing representative clips. Keep them configurable rather than embedded in application logic.
-
-Run the same response validation regardless of provider. Switching providers creates a new analysis run and preserves the original.
-
-Keep all provider keys on the server.
-
-### Privacy and data handling
-
-These requirements apply to initial analysis, retries, targeted follow-up inspection, Coach, Post ideas, and Post Analysis personalisation.
-
-- **Original video stays local:** Never upload the original video to CreatorLENS servers or an AI provider. Decode and sample it in the browser. Send only the evidence needed for each task through the server to the named provider; reuse existing evidence rather than resending media unnecessarily.
-- **Explain outgoing evidence:** Before the first analysis request, show a transfer summary with sampled-frame thumbnails and timestamps, audio time ranges and total duration, and the provider receiving each type of data. If transcription needs the full audio track in chunks, disclose that the full audio duration leaves the device. Include the brief and any relevant transcript, conversation context, performance metrics, or confirmed audience insights being sent. Show additional evidence transfers for follow-up inspection as well.
-- **Disable response storage where supported:** Explicitly set `store: false` in the server-side OpenAI adapter for every applicable request, including retries and follow-ups. Do not pass unsupported parameters to transcription or other endpoints. Keep conversation state locally and send bounded context for each request.
-- **Verify training-sharing settings:** Before using creator data, an organisation owner must verify the OpenAI API organisation’s Data controls and the settings applying to the exact CreatorLENS project. Confirm it has not opted into sharing inputs/outputs, feedback, or evaluation/fine-tuning data for model improvement. Record the organisation/project identifiers, verification date, verifier, and outcome without storing credentials. Recheck when changing the deployed organisation or project. ChatGPT account settings do not establish the API project’s settings.
-- **Minimise server persistence:** Process evidence transiently; do not persist media or request/response bodies in server databases, logs, analytics, or error traces. Keep saved reviews and performance history in the browser as described in section 12. Log only operational metadata needed for usage and reliability.
-- **Describe retention accurately:** `store: false` controls response storage; it is not a training opt-out or a guarantee of zero retention. OpenAI API data is not used for training by default unless sharing is explicitly enabled. Abuse-monitoring and endpoint-specific retention rules can still apply. Do not claim Zero Data Retention unless the deployed organisation/project has that approved configuration and the selected endpoints and features support it. Verify equivalent controls separately before enabling another provider.
-
-Suggested notice beside **Analyse your video**:
-
-“Your original video stays on this device. For this analysis, we send the frames and audio listed below, along with your brief, through CreatorLENS servers to the named AI providers. Your saved history stays in this browser. Provider retention policies apply.”
-
-On `/personalise`, explain that saving performance results is local, while requesting AI-personalised advice sends the relevant results and confirmed insights to the named provider when personalisation is enabled.
-
-Reference: [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data), checked 26 September 2026.
-
-**Verification status:** Requirements documented; API organisation/project sharing settings have not yet been verified. Complete and record this check before processing creator data.
-
-## 15. Reliability, cost, and state handling
-
-Visible processing stages:
-
-**Preparing video → Extracting evidence → Analysing scenes → Building review → Ready**
-
-Also support:
-
-**Partial result · Failed · Cancelled**
-
-Requirements:
-
-- Retry transient failures at most twice with backoff.
-- Preserve successful windows.
-- Allow cancellation; stop scheduling new work.
-- Mark missing intervals visibly.
-- Never show a successful complete review after silent visual-analysis failure.
-- Cache by video hash, brief, model, and pipeline version.
-- Reuse extracted evidence when only the brief changes.
-- Bound coach history and output size.
-- Log provider usage and latency without logging raw media or full private conversations.
-
-Initial performance target: a 60-second clip reviewed in under two minutes on the demo machine and network. Measure this before presenting it as a product claim.
-
-## 16. Build order
-
-### Milestone 1 — Prove visual understanding
-
-Upload, playback, frame extraction, one AI window, and a clickable visual finding.
-
-Exit condition: detect a meaningful issue that is absent from the transcript.
-
-### Milestone 2 — Complete the review
-
-Multi-window processing, transcription, evidence merge, prioritised findings, and ratings.
-
-### Milestone 3 — Connect the coach
-
-Grounded follow-up questions, clickable references, saved advice, and post ideas.
-
-### Milestone 4 — Add continuity and discovery
-
-Persistent history, YouTube discovery, curated TikTok/Instagram references, and “Apply to my video.” Add Post Analysis at `/personalise` with manual performance entry, saved snapshots, and creator-confirmed personalisation.
-
-### Milestone 5 — Verify the demo
-
-Error states, budget controls, representative-video testing, and a clearly labelled previously analysed backup example.
-
-Stretch: revision comparison and cut-sequence playback.
-
-## 17. Acceptance criteria
-
-The build is ready when:
-
-1. A supported video up to 90 seconds completes analysis.
-2. A silent video receives a useful visual review.
-3. A fixture with irrelevant B-roll is recognised as visually mismatched to its speech.
-4. A fixture with unreadable on-screen text produces a supported visual finding.
-5. Every displayed critique links to valid evidence.
-6. Timeline actions seek to the correct part of the video.
-7. Coach responses stay within the selected video and relevant saved context.
-8. Provider failure produces an honest error or partial result.
-9. History survives refresh and offers verified file reselection for playback.
-10. Trend sources, dates, and collection methods are visible.
-11. Caption and hashtag suggestions remain grounded in the content.
-12. API keys are absent from browser assets and network responses.
-13. Post Analysis appears after History and saves validated, dated performance results linked to a reviewed video.
-14. Personalised advice identifies its supporting results, respects the creator’s personalisation setting, and never fabricates missing metrics or retention data.
-15. Network inspection confirms that original video files never leave the browser and outgoing frames, audio, and context match the displayed transfer summary, including follow-up requests.
-16. Adapter checks confirm `store: false` on all applicable OpenAI requests, including retries, and no content-bearing server logs or persistent media storage.
-17. The deployed OpenAI organisation/project has a recorded verification that training-related data sharing is disabled before creator data is processed.
-
-Use a small evaluation set covering silent footage, talking-head content, rapid cuts, text-heavy clips, a product demonstration, noisy audio, and unsupported files.
-
-Have a human reviewer check timestamp accuracy, evidence support, and whether the proposed edits are practical.
-
-## 18. Demo narrative
-
-Upload a creator’s draft containing:
-
-- An opening that explains the topic before showing its value.
-- A strong visual demonstration later in the video.
-- One distracting or irrelevant shot.
-- A repeated explanation.
-
-CreatorLENS identifies these moments and links each finding to playback.
-
-Ask the coach to improve the opening using existing footage. Apply a relevant trend reference, generate a caption, and save the suggested changes to history.
-
-The proof is that CreatorLENS understood what viewers would see and hear—and turned that evidence into useful creative decisions.
+- One-click YouTube connect (OAuth) — the funnel's entry point, must be one click per spec §6.
+- Diagnosis — one sharp, non-obvious, evidence-cited reason growth stalled. Spec's own conversion condition: "post more consistently" doesn't convert, "your Shorts audience is 80% different from your long-form audience, so Shorts growth isn't feeding monetisation" does. Must appear within ~30 seconds or the funnel fails.
+- "Your channel in one sentence" — a before/after contrast (channelInOneSentence.then / .now), e.g. "grew fastest when tutorials were paired with a 2× weekly cadence... but over the last 12 weeks, format mix shifted away from that combination." Added late in planning specifically because it's the highest emotional-impact, lowest-engineering-cost item in the whole plan — one more field in the same diagnosis call, no new request. Build it early.
+- Content DNA ("Growth Memory") — the creator's real strongest topics/formats/hook-styles, computed by plain aggregation over their own real video history (no LLM needed for this part — sorting and grouping only). Reinforces "the AI knows your channel," which matters directly for the week-2 retention hook.
+- Time-permitting only: splitting this into separate "most views" / "best subscriber conversion" / "best retention" rankings per format is genuinely buildable (YouTube Analytics API v2 reports.query with dimensions=video + metrics=subscribersGained,averageViewDuration is a real, documented report type for the channel owner) but is added API surface — sequence it behind the KPI scorecard/benchmark work.
+- Content ideas + hook variants ("Hook Lab," reframed) — 2–3 next-post suggestions, each with trendRelevance/audienceFit as qualitative high/medium/low tags, never a numeric percentage (a fabricated "92% audience fit" would be exactly the dishonesty principle §2 exists to prevent), plus 2–3 stylistic hook-line variants per idea (bold/relatable/curiosity). Explicitly not per-video upload-and-edit tooling — these are read-only suggestions grounded in real Content DNA + trend context, generated in the same diagnosis call. Sequenced as "this week's content for your chosen path," placed after the 3-path fork, not floating as a generic idea list next to the diagnosis.
+- 3-path 12-week growth simulation — the stated core differentiator. Three named strategies (e.g. "Double Down" / "Balanced" / "Experiment," not generic "Path A/B/C") each with an explicit one-line trade-off, never a claim that one path is simply "best." Full plan is shown free (see §5) — no teaser cutoff.
+- KPI Scorecard — subscriber/view/watch-time trend tiles styled like a monthly business report tile, not a consumer app widget. Cheap: a restyle of data already computed.
+- Benchmark table — this channel vs. the niche comparables on cadence and format mix, shown as a range ("You: 2.1 · Niche range: 1.5–2.4"), explicitly never a fake percentile ("better than 72% of creators") — there's no data to justify that specific a claim.
+- Opportunity/trade-off matrix — a grid comparing the 3 paths on effort vs. projected growth vs. risk, replacing a plain card list specifically for this view.
+- Executive-summary framing — the diagnosis renders as a one-page report (headline + supporting bullets), not a chat-style bubble. A deliberate design instruction, not a new component.
+- Weekly recalibration — predicted vs. actual, using the same recalibrateWeek() function that powers the self-backtest (walk-forward retrospectively = the backtest; called on-demand for a scripted future week = the live demo mechanic). This is also the paywall's gating mechanism (see §5).
+- Cross-platform view (Instagram/TikTok) — explicitly mocked, rendered through a shared `<MockLabel>` component, never presented as live. Building live integrations for these inside the hackathon window isn't realistic, and pretending otherwise would be worse than admitting it.
+- In-app chat — grounded strictly in that session's own already-computed diagnosis/paths/backtest (server builds the system prompt from stored session data, never trusts the client's copy of it), told explicitly to say "I don't know" rather than invent anything about audience or platform data it wasn't given. Given suggested starter questions ("Why did my growth slow down?", "Which format should I make more of?", "Give me 3 ideas based on my Content DNA") instead of a blank "ask anything" box, so it reads as a contextual strategist tool, not a generic chatbot bolted on. This is the first thing cut if time is short — Content DNA + Ideas ship instead of chat, not in addition, because they're cheaper (one bounded call already piggybacking on /api/diagnose, plain card UI, no conversation state) and a stronger single demo beat.
+- Sidebar navigation (Overview/Diagnosis/Content DNA/Strategy/Simulator/Ideas) — kept for the professional strategy-software look, but built as anchor navigation with scroll-spy highlighting over sections on the same two pages, not as 8 separate Next.js routes. Gets the polish essentially for free without the real cost of the routed version (a shared layout to avoid re-fetching /api/diagnose per page, route-based active-link logic, more surface area under time pressure) and without contradicting the earlier "keep the IA lean" decision — it's still one dashboard, just with a nice in-page nav aid.
+- Visual design direction: Bloomberg Terminal × strategy consultancy, explicitly not TikTok × ChatGPT — dark navy/beige, large editorial type, very subtle card borders, minimal animation. This also reduces build risk (less animation work under time pressure), not just aesthetics.
+
+## 5. Paywall and monetization — full design and reasoning
+
+Evolution of this decision, kept because the reasoning matters: the original idea was an immediate paywall right after the diagnosis teaser (spec §6's literal design). That was revised after discussing a 15-day/2-week free-cycle hook idea — the insight being that a creator who sees the product actually work against real incoming data once is far more likely to pay than one who's asked to pay before seeing any real result. Since a hackathon demo can't show 15 real days passing, this was resolved into a mechanism that's real and demoable:
+
+- Free tier: OAuth connect → diagnosis → Content DNA + ideas → the full initial 12-week 3-path plan (not a teaser cut off at week 1 — showing the complete plan free is deliberate, it's the "fork in the road" wow moment and gating it would undercut the demo) → one real recalibration at week 2. This is the hook: real data, real comparison, proof the model works, before any ask for payment.
+- Paywall: sits immediately after the week-2 recalibration. Every recalibration after week 2 requires unlock. GET /api/recalibration?week=2 is always served regardless of unlock status; week=3 and beyond check the same unlock flag.
+- Not real payment processing for the hackathon — `unlock()` in lib/storage.ts sets a plain, non-httpOnly `clx_unlocked=1; path=/` cookie and `isUnlocked()` reads it for immediate UI updates. The API reads the same cookie directly from the request to enforce week 3+ and chat. This is explicitly labelled as a demo boundary, not an entitlement system. Paywall copy frames it as a continuation of the story already shown ("Your first recalibration ✓ — your next one is ready to unlock. CreatorLENS Pro: weekly recalibration + cross-platform + deeper personalization, SGD 30/month") rather than a jarring generic upgrade interruption.
+- Pricing: ~SGD 30/month target, explicitly flagged as needing validation with real creators — not confirmed, just the working assumption.
+
+## 6. Shared API contract — the merge seam
+
+Lives in lib/types.ts, imported by both tracks. Frontend builds entirely against this + a fixture; backend implements it exactly; when backend lands, only lib/api.ts changes.
+
+```ts
+// GET /api/diagnose — 401 JSON (not a redirect) when unauthenticated
+type DiagnoseResponse = {
+  channel: { title: string; subscriberCount: number; recentCadencePerWeek: number };
+  diagnosis: { headline: string; explanation: string; evidence: string[] };
+  channelInOneSentence: { then: string; now: string };
+  contentDna: { topTopics: string[]; topFormats: string[]; topHookStyles: string[] };
+  ideas: Array<{
+    title: string;
+    trendRelevance: "high" | "medium" | "low";
+    audienceFit: "high" | "medium" | "low";
+    hooks: Array<{ style: "bold" | "relatable" | "curiosity"; line: string }>;
+  }>;
+  paths: Array<{
+    id: "A" | "B" | "C";
+    name: string;                 // e.g. "Double Down" / "Balanced" / "Experiment"
+    oneLiner: string;
+    weekOnePlan: string[];
+    projectedWeek12Subs: number;
+    tradeOff: string;
+  }>;
+  backtest: { channelsTested: number; meanErrorPct: number } | null;  // null until real, never a placeholder 0
+};
+
+// GET /api/connect — backend-owned redirect calling signIn("google") server-side, so the
+// frontend Connect button can be a plain <a>, no next-auth import. Verify first whether
+// this route is even necessary: check if a bare GET /api/auth/signin/google redirects
+// straight into Google's consent screen on the installed next-auth v5 version — if so,
+// drop this route and point the anchor there directly.
+
+// GET /api/plan?pathId=A — no unlock required, the full initial plan is free.
+// /dashboard/plan also always renders; only week 3+ checkpoints lock inline.
+type PlanResponse = {
+  weeklyProjection: Array<{ week: number; subs: number }>;
+  weeklyActions: Array<{ week: number; action: string }>;   // templated, not LLM-generated
+  crossPlatform: { mocked: true; note: string; instagram: unknown; tiktok: unknown };
+  kpiScorecard: Array<{ label: string; value: number; trend: "up" | "down" | "flat" }>;
+  benchmark: Array<{ channelLabel: string; cadencePerWeek: number; formatMixPct: number; isMe: boolean }>;
+  opportunityMatrix: Array<{
+    pathId: "A" | "B" | "C";
+    effort: "low" | "medium" | "high";
+    projectedGrowth: number;
+    risk: "low" | "medium" | "high";
+  }>;
+};
+
+// GET /api/recalibration?week=N — week 2 always free; week 3+ checks clx_unlocked
+// directly from the request cookie and returns 401 JSON when absent.
+// Backed by the same recalibrateWeek() function used for the self-backtest.
+type RecalibrationResponse = {
+  week: number;
+  predicted: number;
+  actual: number;
+  deltaPct: number;
+  adjustedPlan: { note: string; changes: string[] };
+  mocked: boolean;   // false for weeks that already really happened, true for scripted demo weeks
+};
+
+// POST /api/chat — checks the same clx_unlocked request cookie. First feature cut if time runs short.
+// System prompt built server-side from the session's own stored diagnosis/paths/backtest —
+// client sends only the conversation, never the analysis data itself.
+type ChatRequest = {
+  message: string;
+  history: Array<{ role: "user" | "assistant"; content: string }>;  // capped ~6 turns, not persisted
+};
+type ChatResponse = { reply: string };
+```
+
+Auth state the frontend needs: whether a session exists — inferred from /api/diagnose's 401, never a useSession()/next-auth import in frontend code.
+
+Unlock mechanism: localStorage is browser-only, so it cannot enforce an API route. `lib/storage.ts` uses the `clx_unlocked` cookie for both `unlock()` and `isUnlocked()`; `/api/recalibration` for week 3+ and `/api/chat` read that cookie from the incoming request. `/dashboard/plan` never redirects based on unlock state because it contains the free plan and week-2 recalibration. Later weeks render locked placeholders inline until unlocked.
+
+## 7. Backend track — complete, with reasoning for every item
+
+- Owns: lib/auth.ts, lib/youtube.ts, lib/diagnosis.ts, lib/simulation.ts, lib/chat.ts, scripts/build-comparables.ts, app/api/auth/[...nextauth]/route.ts, app/api/diagnose/route.ts, app/api/plan/route.ts, app/api/recalibration/route.ts, app/api/chat/route.ts, app/api/connect/route.ts.
+- New dependencies: next-auth (v5, App Router) for OAuth + refresh handling. simple-statistics for the regression — small, pure JS, no native deps, safe for serverless.
+- New env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_SECRET, NEXTAUTH_URL, YOUTUBE_API_KEY (server-side, public-data only). Keep existing OPENAI_API_KEY/OPENAI_MODEL.
+- Auth (lib/auth.ts) — Google provider requesting openid email profile https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly, access_type=offline&prompt=consent. JWT callback persists tokens and refreshes the access token when expired (check expires_at, call Google's token endpoint with the stored refresh_token — Auth.js v5 does not do this automatically). Without this, a session prepared ahead of the demo can silently die before judges see it.
+- YouTube data (lib/youtube.ts) — getMyChannel (Data API v3 channels.list), getMyAnalyticsHistory (Analytics API v2 reports.query, dimensions=day, ~18 months — real history, own channel only), getMyRecentVideos (Data API v3 playlistItems.list + videos.list, classify Short vs. long-form by duration ≤60s, keep publishedAt + view/like counts — the only growth signal available for other channels).
+- Comparables fixture (scripts/build-comparables.ts) — one-off script, YOUTUBE_API_KEY, pulls 5–8 public channels in one niche via Data API v3 only (channels.list + videos.list, no historical polling attempted since it's not possible), writes lib/data/comparables.json. Run once, well before the demo.
+- Diagnosis (lib/diagnosis.ts) — one OpenAI call (store:false, same pattern as the old app/api/review/route.ts) returning { headline, explanation, evidence, contentDna, ideas, channelInOneSentence } in one structured response. Trend context: each comparable channel's recent top-performing video titles/topics folded into the prompt. contentDna is pure aggregation (no LLM) over getMyRecentVideos. ideas' trendRelevance/audienceFit must be emitted as "high"|"medium"|"low", never a numeric percentage.
+- Time-permitting: per-format "best subscriber conversion"/"best retention" split via Analytics API dimensions=video + metrics=subscribersGained,averageViewDuration — real and buildable, but sequence behind KPI scorecard/benchmark.
+- Simulation + recalibration (lib/simulation.ts) — fitGrowthModel(ownAnalyticsHistory) (regression via simple-statistics on real cadence/format-mix vs. real growth), recalibrateWeek(predicted, actual) (the core reusable function — delta + adjusted-plan note; used retrospectively for the backtest and on-demand for scripted demo weeks), backtest(model, ownAnalyticsHistory) (walks recalibrateWeek across every past week, returns { channelsTested: 1, meanErrorPct } — one channel walked forward, say so plainly, not "20 channels"), simulatePaths(myChannel, model, comparables) (3 named strategies 12 weeks out; comparables inform trade-off text only, never a subscriber-count input).
+- Routes — /api/diagnose and /api/plan implement the contract exactly. /api/diagnose returns 401 JSON (never a redirect) when unauthenticated. backtest stays null until real — never channelsTested: 0 as a placeholder. /api/plan needs no unlock (free tier), and also computes kpiScorecard/benchmark/opportunityMatrix from data already fetched.
+- GET /api/recalibration?week=N — week 2 always served; week 3+ reads `clx_unlocked` directly from the request cookie and returns 401 JSON if absent. Past weeks use real data (mocked:false); future weeks use scripted fixture data (mocked:true) — one code path for both. `/api/chat` enforces the same cookie.
+- GET /api/connect — redirect route calling signIn("google", { redirectTo: "/dashboard" }) server-side. Confirm first whether it's actually needed (see contract note above) before building it.
+- weeklyActions — templated, not LLM-generated, specifically to avoid 3 OpenAI round-trips when the frontend fetches all 3 paths in parallel. Memoize the fitted regression model at module scope (fit once per process, not per request) regardless.
+- Chat (lib/chat.ts + route) — system prompt built server-side from that session's already-computed diagnosis/paths/backtest (looked up server-side, never trusted from client input), told to say "I don't know" rather than invent anything, history bounded to a handful of turns. First thing cut if time is short.
+- Backend verification: npm run typecheck && npm run build; sign in with the test-user account, confirm /api/diagnose returns a headline citing real numbers and a 401 body when signed out; run backtest() standalone against a real trailing slice of history and print the mean error before the demo; leave a session idle past token expiry once and confirm the refresh logic keeps /api/diagnose working; clear `clx_unlocked` and confirm `/api/recalibration?week=3` returns 401 JSON while week 2 still succeeds.
+
+## 8. Frontend track — complete, with reasoning for every item
+
+- Owns: app/page.tsx, app/dashboard/page.tsx, app/dashboard/plan/page.tsx, app/layout.tsx, app/globals.css (full rewrite — existing file styles a UI being deleted, wrong theme entirely), lib/storage.ts (repurposed: cookie-backed isUnlocked()/unlock(), localStorage-backed getChosenPath()/setChosenPath()), lib/types.ts (repurposed to hold the contract types), lib/data/fixture.ts (a full fake DiagnoseResponse/PlanResponse pair), lib/api.ts (the only file that calls fetch — fixture until routes exist, error/401 fallback after), README.md.
+- Delete (this branch only, not the teammate's separate video-analysis-pipeline branch): app/api/review/route.ts, app/history/page.tsx, app/personalise/page.tsx, app/trends/page.tsx, lib/media.ts.
+- No next-auth import anywhere in the frontend. Session state inferred purely from /api/diagnose's 401 status — one source of truth, no drift between a session hook and the data.
+
+### Design system — dark navy/beige, "Bloomberg Terminal × strategy consultancy"
+
+- Tokens: --navy-900 (page background) → --navy-800 (cards) → --navy-700 (raised/hover) → --navy-600 (borders, inactive) → --beige (scarce — primary CTA/headline only) → --text-muted/--text-dim (body/labels) → three distinguishable series colors for the fork chart (solid/dashed/dotted, never color alone).
+- Elevation via lightness, not shadow (shadows read as smudges on navy). Lighter display font weights (light-on-dark blooms optically). Real :focus-visible rings (default outline is nearly invisible on navy). prefers-reduced-motion disables chart draw-on animation. Minimal animation overall — the product should read as "we analyze your business," not "we are a fun AI toy."
+
+### Page structure and flow
+
+- app/page.tsx (landing, server component, client JS only for the path switcher) — hero ("See why your channel stalled," Connect YouTube + a "preview a demo channel" secondary CTA), an interactive fork/chart section, the problem framing (plateaued creator vs. creator-with-a-team, why each competitor category misses), a real diagnosis example, the backtest/proof panel (suppressed until real), the economics comparison (SGD 800–2,500 vs. SGD 30), the augmentation-not-replacement framing, honest scope disclosure, FAQ addressing "NEXORA already does this."
+- app/dashboard/page.tsx (free tier) — on load, fetch("/api/diagnose") with staged progress copy, not a bare spinner ("Reading 18 months of analytics" → "214 videos analyzed" → "Clustering your audiences" — advances on its own timer, independent of the fetch, over skeleton cards in the final layout shape so nothing reflows on arrival). On 401: a connect state with a "preview with a demo channel" escape hatch. On error: render the fixture behind a visible "Demo channel" badge — never a blank screen or raw error on stage. When loaded: channel strip → ChannelInOneSentence (build early) → executive-summary-framed diagnosis card → ContentDnaBadges → 3-path fork with OpportunityMatrix (full 12-week plan already visible, no cliffhanger cutoff) → IdeaCards framed as "this week's content" for the selected path, each expandable to show hook variants.
+- app/dashboard/plan/page.tsx (free plan plus gated later checkpoints) — always renders, with no page-level redirect. WeekTimeline steps through recalibration checkpoints (week 2 always free and real; week 3+ locked inline with a same-height placeholder and unlock CTA, not collapsed); KpiScorecard and BenchmarkTable; chat panel here if it shipped.
+- Sidebar nav: Overview/Diagnosis/Content DNA/Strategy/Simulator/Ideas as anchor links with scroll-spy active-state highlighting over sections already on these two pages — not separate routes.
+- Components to build: PathChart (inline SVG, 3 series, dash pattern + end labels, no chart library dependency), DiagnosisCard (executive-summary framed), ChannelInOneSentence, ContentDnaBadges, IdeaCard (expandable, hook-style variants, qualitative fit pills — never percentage bars), KpiScorecard, BenchmarkTable (range framing, not percentile), OpportunityMatrix, WeekTimeline, Paywall (framed as continuing the story, not a generic upgrade modal), MockLabel (shared, driven off every mocked:true field so labelling is structural, not remembered per-component), ChatPanel (if shipped — suggested starter questions, not a blank input, no streaming, capped/non-persisted history).
+- Frontend verification: typecheck/lint/build clean; full click-through against the fixture with backend absent, then again against live routes with zero page-component changes beyond lib/api.ts; backtest:null → no accuracy claim anywhere; forced 500 on /api/diagnose → fixture renders with the demo badge; direct visit to /dashboard/plan with no unlock cookie renders the full free plan and week 2, with week 3+ locked inline; direct `/api/recalibration?week=3` without the cookie returns 401; keyboard-only pass on path tabs with a visible focus ring; 375px width has no horizontal scroll.
+
+## 9. Cut order if time runs short — decide now, not mid-build
+
+### Most disposable first
+
+1. Chat — drop first. Content DNA + Ideas ship instead, not in addition.
+2. Benchmark table and opportunity matrix — need new data-shaping, not just restyling.
+3. Extra recalibration checkpoints beyond week 2 — fall back to the single free hook screen.
+4. Simplify the simulation model further.
+
+Never cut: OAuth connect, the real own-channel diagnosis, the full initial 12-week plan, one real accuracy number from the backtest. KPI scorecard, executive-summary framing, Content DNA, Ideas+Hooks, and ChannelInOneSentence are all cheap relative to their demo impact — keep them even under pressure.
+
+## 10. Demo runbook (~3 minutes)
+
+Before judges see it: sign in once with the demo test-user account ahead of time (don't do first-time OAuth consent live); pre-run backtest() so the accuracy number is known and speakable with the small-sample caveat already worked into the sentence; have the browser already on /dashboard, signed in, one click from a clean re-run, and double-check the session hasn't hit token expiry right before going on; have a recorded fallback (video/screenshots of the full happy path) in case live YouTube API calls fail or rate-limit during the actual demo.
+
+### The script
+
+1. Open already at the dashboard with the real creator channel loaded — mention OAuth exists, don't click through it live.
+2. Diagnosis in executive-summary framing — read the headline aloud, point at the specific numbers, glance at the KPI scorecard and benchmark table.
+3. Scroll to Content DNA and Ideas — open one idea, show its 3 hook-style variants. This is the "it knows my channel" beat.
+4. Show the fork: 3 paths in the opportunity matrix, one-line trade-offs, the full 12-week plan already visible — no unlock needed yet.
+5. Step the WeekTimeline to week 2: a real recalibration — say explicitly this one is real. Step further: locked, paywall appears. Unlock.
+6. Step to the unlocked later week: another recalibration, say explicitly this one is scripted for the demo, then close with the real backtest number, phrased as directional ("walk-forward tested against this channel's own past weeks"), not a precise guarantee.
+7. (if chat shipped) ask it a grounded follow-up question live — a strong closer, but only if it made the cut.
+8. Say out loud, don't let a judge discover it: which parts are live (OAuth, own-channel diagnosis, week-2 recalibration, the backtest number, chat if shipped) vs. mocked (cross-platform card, the later scripted recalibration week).
+
+## 11. Setup prerequisites (do before either track can run end-to-end)
+
+Create a Google Cloud OAuth client (redirect http://localhost:3000/api/auth/callback/google), enable YouTube Data API v3 + YouTube Analytics API, set the OAuth consent screen to Testing status, and add the demo YouTube account as a test user — both youtube.readonly and yt-analytics.readonly are restricted scopes that won't authorize for anyone else until this is done.
+
+## 12. Vision / roadmap — pitch material only, explicitly not build scope
+
+The long-term version of this product: a full AI content-strategist pipeline — dedicated per-video content analysis, a trend-ingestion engine across platforms, an LLM router tiered by task complexity (cheap/fast model for simple tasks, a stronger model for deep strategy work), a RAG layer over the creator's own history and niche trend data, and eventually one piece of content repurposed into multiple audience-targeted versions. None of this is buildable in the hackathon window — the only piece that ships live is the lightweight trend-context folded into the diagnosis prompt (§7.4). Keep this section visibly separate from the build plan so nobody mistakes the roadmap for a commitment.

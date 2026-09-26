@@ -1,23 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Brand } from "@/components/ui";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CreatorLENS — Make the next cut count",
-  description: "Evidence-based feedback for short-form creators.",
+  title: "CreatorLENS — A clearer next move",
+  description: "Understand your channel's plateau, explore three 12-week growth scenarios, and turn your history into a considered next move.",
 };
-
-const nav = [
-  { href: "/", label: "Home" },
-  { href: "/trends", label: "Trends" },
-  { href: "/history", label: "History" },
-  { href: "/personalise", label: "Post Analysis" },
-];
-
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><div className="site-shell">
-    <header className="site-header"><Link href="/" className="brand"><span className="brand-mark">◉</span> CreatorLENS</Link><nav aria-label="Main navigation">{nav.map(item => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav><span className="header-note">A clearer next cut.</span></header>
-    <main>{children}</main>
-    <footer>CreatorLENS <span>Made for the moments that matter.</span></footer>
-  </div></body></html>;
+  return <html lang="en"><body><a className="skip-link" href="#main-content">Skip to content</a><header className="site-header"><Brand /><span className="header-note">THE CREATOR’S STRATEGY DESK</span><nav aria-label="Main navigation"><Link href="/#approach">The approach</Link><Link href="/dashboard?demo=1" className="header-demo">Explore demo <span aria-hidden="true">↗</span></Link></nav></header><main id="main-content">{children}</main></body></html>;
 }

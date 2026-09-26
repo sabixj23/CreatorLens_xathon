@@ -1,34 +1,27 @@
-import type { Performance, SavedReview } from "./types";
+import type { PathId } from "./types";
 
-const REVIEWS = "creatorlens.reviews.v1";
-const PERFORMANCE = "creatorlens.performance.v1";
+export const UNLOCK_COOKIE = "clx_unlocked";
+const CHOSEN_PATH = "creatorlens.chosen-path.v1";
 
-function read<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
+export function isUnlocked(): boolean {
+  return typeof document !== "undefined" && document.cookie.split(";").some(part => part.trim() === `${UNLOCK_COOKIE}=1`);
+}
+
+export function unlock(): boolean {
+  if (typeof document === "undefined") return false;
+  document.cookie = `${UNLOCK_COOKIE}=1; Path=/; SameSite=Lax`;
+  return isUnlocked();
+}
+
+export function getChosenPath(): PathId {
+  if (typeof window === "undefined") return "B";
   try {
-    const value = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
+    const value = window.localStorage.getItem(CHOSEN_PATH);
+    return value === "A" || value === "B" || value === "C" ? value : "B";
+  } catch { return "B"; }
 }
 
-export const getReviews = () => read<SavedReview>(REVIEWS);
-export const getPerformance = () => read<Performance>(PERFORMANCE);
-
-export function saveReview(review: SavedReview) {
-  localStorage.setItem(REVIEWS, JSON.stringify([review, ...getReviews()]));
-}
-
-export function deleteReview(id: string) {
-  localStorage.setItem(REVIEWS, JSON.stringify(getReviews().filter((item) => item.id !== id)));
-  localStorage.setItem(PERFORMANCE, JSON.stringify(getPerformance().filter((item) => item.videoId !== id)));
-}
-
-export function savePerformance(performance: Performance) {
-  localStorage.setItem(PERFORMANCE, JSON.stringify([performance, ...getPerformance()]));
-}
-
-export function deletePerformance(id: string) {
-  localStorage.setItem(PERFORMANCE, JSON.stringify(getPerformance().filter((item) => item.id !== id)));
+export function setChosenPath(path: PathId): void {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(CHOSEN_PATH, path); } catch { /* Selection still works in memory. */ }
 }
