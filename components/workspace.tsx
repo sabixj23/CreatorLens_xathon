@@ -8,13 +8,15 @@ import { ChatPanel } from "./chat-panel";
 import { useReport } from "./report-provider";
 import { ConnectLink, Icon, MockLabel } from "./ui";
 
+// Overview / Diagnosis / Content DNA live on /dashboard; Strategy / Simulator / Ideas
+// live on /dashboard/plan — two pages instead of one long scroll.
 const nav = [
   { label: "Overview", section: "overview", path: "/dashboard", icon: "grid" as const },
   { label: "Diagnosis", section: "diagnosis", path: "/dashboard", icon: "diagnosis" as const },
   { label: "Content DNA", section: "content-dna", path: "/dashboard", icon: "dna" as const },
-  { label: "Strategy", section: "strategy", path: "/dashboard", icon: "paths" as const },
+  { label: "Strategy", section: "strategy", path: "/dashboard/plan", icon: "paths" as const },
   { label: "Simulator", section: "simulator", path: "/dashboard/plan", icon: "chart" as const },
-  { label: "Ideas", section: "ideas", path: "/dashboard", icon: "bulb" as const },
+  { label: "Ideas", section: "ideas", path: "/dashboard/plan", icon: "bulb" as const },
 ];
 export function StagedLoader() {
   const [stage, setStage] = useState(0);
@@ -25,9 +27,9 @@ export function StagedLoader() {
 export function Workspace({ children }: { children: ReactNode }) {
   const { state, href, retry } = useReport();
   const pathname = usePathname();
-  const [active, setActive] = useState(pathname.endsWith("/plan") ? "simulator" : "overview");
+  const [active, setActive] = useState(pathname.endsWith("/plan") ? "strategy" : "overview");
   useEffect(() => {
-    setActive(pathname.endsWith("/plan") ? "simulator" : "overview");
+    setActive(pathname.endsWith("/plan") ? "strategy" : "overview");
     const observer = new IntersectionObserver(entries => {
       const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
       if (visible[0]) setActive(visible[0].target.id);

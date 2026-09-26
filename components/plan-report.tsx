@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useReport } from "./report-provider";
-import { BacktestProof, BenchmarkTable, CrossPlatform, KpiScorecard, OpportunityMatrix } from "./report-cards";
-import { PathChart } from "./path-chart";
+import { BacktestProof, CrossPlatform, IdeaCard, KpiScorecard, OpportunityMatrix } from "./report-cards";
+import { StrategyFork } from "./strategy-fork";
 import { WeekTimeline } from "./week-timeline";
+import { WeeklyTimeline } from "./weekly-timeline";
 import { SectionHeading } from "./ui";
 
+// Page 2: Strategy, Simulator, Ideas — the "choose and act" half of the report.
+// Overview/Diagnosis/Content DNA live on /dashboard (see dashboard-report.tsx).
 export function PlanReport() {
   const { state, selected, select, href } = useReport();
   if (state.status !== "ready") return null;
@@ -14,11 +17,11 @@ export function PlanReport() {
   const plan = plans[selected];
   const path = diagnosis.paths.find(p => p.id === selected)!;
   return <>
-    <section id="simulator" data-nav-section className="overview-section"><div className="page-heading"><div><p className="eyebrow">FROM DIRECTION TO DOING</p><h1>The next 12 weeks.</h1><p>Your complete plan. A little more informed, every week.</p></div><Link className="text-link" href={href("/dashboard", "strategy")}>← Back to your strategy</Link></div><div className="plan-status"><span className={`series-dot series-${selected}`} /><strong>{path.name}</strong><span>{path.oneLiner}</span><span className="free-label">INITIAL PLAN · FREE</span></div><div className="panel fork-chart"><PathChart diagnosis={diagnosis} plans={plans} selected={selected} onSelect={select} /></div><OpportunityMatrix items={plan.opportunityMatrix} paths={diagnosis.paths} selected={selected} /></section>
-    <section className="report-section" id="weekly-actions"><SectionHeading number="01" eyebrow="THE WEEKLY RHYTHM" title="Small steps. A considered direction."><span className="section-pill">{path.name}</span></SectionHeading><div className="weekly-grid">{[...plan.weeklyActions].sort((a, b) => a.week - b.week).map(item => <article className="weekly-action" key={item.week}><span className="week-number">{String(item.week).padStart(2, "0")}</span><div><span className="eyebrow">WEEK {item.week}</span><p>{item.action}</p></div></article>)}</div></section>
+    <section id="strategy" data-nav-section className="overview-section"><div className="page-heading"><div><p className="eyebrow">YOUR STRATEGIC FORK</p><h1>Three paths. Your call.</h1><p>Different trade-offs. One complete, free 12-week view.</p></div><Link className="text-link" href={href("/dashboard", "overview")}>← Back to your channel</Link></div><StrategyFork diagnosis={diagnosis} plans={plans} selected={selected} onSelect={select} /><OpportunityMatrix items={plan.opportunityMatrix} paths={diagnosis.paths} selected={selected} /></section>
+    <section id="simulator" data-nav-section className="report-section"><SectionHeading number="01" eyebrow="THE WEEKLY RHYTHM" title="Small steps. A considered direction."><span className="section-pill">{path.name}</span></SectionHeading><p className="section-intro">Hover or focus a week to see that week&apos;s action.</p><WeeklyTimeline actions={plan.weeklyActions} /></section>
     <section id="recalibration" className="report-section"><SectionHeading number="02" eyebrow="CLOSE THE LOOP" title="What changed? What comes next?"><p>Week 2 is free. Continue with Pro from week 3.</p></SectionHeading><WeekTimeline demo={source === "demo"} /><BacktestProof backtest={diagnosis.backtest} /></section>
     <section className="report-section" id="scorecard"><SectionHeading number="03" eyebrow="YOUR PERFORMANCE BRIEF" title="Keep the whole picture in view." /><KpiScorecard items={plan.kpiScorecard} /></section>
-    <section className="report-section" id="benchmark"><SectionHeading number="04" eyebrow="NICHE CONTEXT" title="Perspective, without the leaderboard."><p>Your channel alongside comparable channels.</p></SectionHeading><BenchmarkTable rows={plan.benchmark} /></section>
+    <section id="ideas" data-nav-section className="report-section"><SectionHeading number="04" eyebrow="THIS WEEK’S CONTENT" title="Turn the strategy into a starting point."><span className="section-pill">Exploring {path.name}</span></SectionHeading><p className="section-intro">Channel-grounded ideas to consider alongside your chosen plan. Open one to explore three ways in.</p><div className="ideas-list">{diagnosis.ideas.map((idea, i) => <IdeaCard key={idea.title} idea={idea} index={i} />)}</div><p className="fine-print">Ideas come from your channel report. Changing paths changes the weekly actions; it doesn’t generate a new set of ideas.</p></section>
     <CrossPlatform data={plan.crossPlatform} />
   </>;
 }

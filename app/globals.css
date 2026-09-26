@@ -18,6 +18,8 @@
   --glow-c: rgba(179, 164, 213, .16);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --caution: #d7bd87;
+  --good: #8fd19e;
+  --bad: #e2897f;
   --sans: "Avenir Next", "Segoe UI", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -291,6 +293,27 @@ td { color: var(--text-muted); }
 .plan-status strong { font-weight: 500; }
 .plan-status > span:not(.series-dot) { color: var(--text-muted); }
 .plan-status .free-label { margin-left: auto; font-size: 12px; letter-spacing: .1em; color: var(--path-b) !important; }
+/* Weekly rhythm as a hoverable timeline of dots instead of a 12-card grid. */
+/* No overflow-x here on purpose: setting it (even just on x) makes the browser treat
+   overflow-y as auto too, per the CSS overflow spec, which clips the tooltip positioned
+   above each dot. 12 items comfortably fit the desktop content width without scrolling;
+   see the mobile breakpoint for the narrow-viewport version. */
+.weekly-timeline { position: relative; display: flex; align-items: flex-start; gap: 0; padding: 44px 6px 6px; flex-wrap: wrap; row-gap: 24px; }
+.weekly-timeline-track { position: absolute; left: 24px; right: 24px; top: 58px; height: 1px; background: var(--line); }
+.weekly-timeline-item { position: relative; flex: 1 0 64px; display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.weekly-timeline-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--path-b); background: var(--navy-800); cursor: pointer; padding: 0; transition: transform .2s var(--ease), background .2s, box-shadow .2s; }
+.weekly-timeline-dot:hover, .weekly-timeline-dot:focus-visible { background: var(--path-b); box-shadow: 0 0 16px var(--glow-b); transform: scale(1.25); }
+.weekly-timeline-label { margin-top: 10px; font-size: 12px; color: var(--text-dim); letter-spacing: .05em; }
+.weekly-timeline-item.is-active .weekly-timeline-label { color: var(--beige); }
+.weekly-timeline-tooltip { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(4px); width: 200px; background: var(--navy-800); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 20px 40px -20px rgba(0, 0, 0, .8); z-index: 5; text-align: left; }
+.weekly-timeline-tooltip strong { display: block; font-size: 12px; color: var(--beige); letter-spacing: .05em; margin-bottom: 5px; }
+.weekly-timeline-tooltip p { font-size: 13px; line-height: 1.6; color: var(--text-muted); margin: 0; }
+.weekly-timeline-item.is-active .weekly-timeline-tooltip { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+.weekly-timeline-item:first-child .weekly-timeline-tooltip { left: 0; transform: translateY(4px); }
+.weekly-timeline-item:first-child.is-active .weekly-timeline-tooltip { transform: translateY(0); }
+.weekly-timeline-item:last-child .weekly-timeline-tooltip { left: auto; right: 0; transform: translateY(4px); }
+.weekly-timeline-item:last-child.is-active .weekly-timeline-tooltip { transform: translateY(0); }
+
 .weekly-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .weekly-action { display: flex; align-items: flex-start; gap: 13px; padding: 22px 19px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); }
 .weekly-action:nth-child(3n) { border-right: 0; }
@@ -336,9 +359,18 @@ td { color: var(--text-muted); }
 .kpi-card p { font-size: 12px; }
 .kpi-card > div { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 15px; flex-wrap: wrap; }
 .kpi-card strong { font-size: 25px; font-weight: 400; letter-spacing: -.05em; color: var(--beige); }
-.trend { font-size: 12px; color: var(--text-muted); }
-.trend-up { color: var(--path-b); }
-.trend-down { color: var(--caution); }
+.trend { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.trend-up { color: var(--good); }
+.trend-down { color: var(--bad); }
+.trend-flat { color: var(--text-dim); }
+
+/* Shared red/amber/green scale for anything with a clear better/worse reading
+   (risk, effort) — never used for the strategy paths themselves, since no single
+   path is "best," only different trade-offs. */
+.level-low { color: var(--good); }
+.level-medium { color: var(--caution); }
+.level-high { color: var(--bad); }
+.level-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; background: currentColor; }
 .benchmark-panel { padding: 8px 20px 17px; }
 .benchmark-panel td:nth-child(2) { color: var(--beige); }
 .benchmark-panel .fine-print { margin: 14px 15px 0; font-size: 12px; }
