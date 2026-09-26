@@ -6,22 +6,18 @@ export function formatTime(seconds: number) {
 
 export async function inspectVideo(file: File): Promise<{ duration: number; width: number; height: number }> {
   if (file.size > 150 * 1024 * 1024) throw new Error("Choose a video smaller than 150 MB.");
-  const video = document.createElement("video");
-  const url = URL.createObjectURL(file);
-  video.preload = "metadata";
-  video.src = url;
+  const { Input, ALL_FORMATS, BlobSource } = await import("mediabunny");
+  const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
+  const timer = setTimeout(() => input.dispose(), 15000);
   try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("This video could not be decoded in your browser."));
-    });
-    if (!Number.isFinite(video.duration) || video.duration < 5 || video.duration > 90) {
-      throw new Error("Choose a video between 5 and 90 seconds.");
-    }
-    return { duration: video.duration, width: video.videoWidth, height: video.videoHeight };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+    const duration = await input.computeDuration();
+    if (!Number.isFinite(duration) || duration < 5 || duration > 90) throw new Error("Choose a video between 5 and 90 seconds.");
+    const track = await input.getPrimaryVideoTrack();
+    if (!track || !(await track.canDecode())) throw new Error("This video cannot be decoded in your browser. Try an H.264 MP4 in Chrome.");
+    const width = await track.getDisplayWidth(), height = await track.getDisplayHeight();
+    if (!width || !height || width * height > 3840 * 2160) throw new Error("Choose a video with valid dimensions up to 4K.");
+    return { duration, width, height };
+  } finally { clearTimeout(timer); input.dispose(); }
 }
 
 export async function sampleFrames(file: File, duration: number): Promise<SampledFrame[]> {

@@ -17,7 +17,10 @@ export const getReviews = () => read<SavedReview>(REVIEWS);
 export const getPerformance = () => read<Performance>(PERFORMANCE);
 
 export function saveReview(review: SavedReview) {
-  localStorage.setItem(REVIEWS, JSON.stringify([review, ...getReviews()]));
+  const reviews = [review, ...getReviews().filter(item => item.id !== review.id)];
+  // Persist metadata only; never evict a creator's history to make room silently.
+  try { localStorage.setItem(REVIEWS, JSON.stringify(reviews)); }
+  catch { throw new Error("Your review is ready, but browser storage is full or unavailable. Free space in History and save again."); }
 }
 
 export function deleteReview(id: string) {

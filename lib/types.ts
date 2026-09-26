@@ -15,6 +15,7 @@ export type Finding = {
 };
 
 export type SavedReview = {
+  analysis?: import("./analysis/schemas").AnalysisResult;
   id: string;
   createdAt: string;
   fileName: string;

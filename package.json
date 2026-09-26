@@ -7,10 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test lib/analysis/*.test.ts",
+    "test:browser": "node --import tsx lib/analysis/browser-smoke.ts",
+    "test:live": "CREATORLENS_LIVE_AI=1 node --import tsx lib/analysis/browser-smoke.ts"
   },
   "dependencies": {
     "next": "^15.5.0",
+    "mediabunny": "^1.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.0.0"
@@ -22,6 +26,8 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "tsx": "^4.20.0",
+    "@playwright/test": "^1.55.0"
   }
 }
