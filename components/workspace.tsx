@@ -35,8 +35,20 @@ export function Workspace({ children }: { children: ReactNode }) {
     document.querySelectorAll("[data-nav-section]").forEach(el => observer.observe(el));
     return () => observer.disconnect();
   }, [pathname, state.status]);
+  if (state.status === "unauthenticated") {
+    return <div className="signin-screen">
+      <div className="signin-card">
+        <div className="connect-orbit"><Icon name="youtube" size={36} /></div>
+        <p className="eyebrow">YOUR CHANNEL. A CLEARER DIRECTION.</p>
+        <h1>Sign in to see your strategy.</h1>
+        <p>{CONNECTION_AVAILABLE ? "Connect the YouTube channel you own to turn your history into a strategy grounded in your actual results." : "Explore the complete strategy experience with a demo channel. YouTube connection will become available with the live service."}</p>
+        <div className="button-row">{CONNECTION_AVAILABLE && <ConnectLink>Continue with Google</ConnectLink>}<Link className="button button-secondary" href="/dashboard?demo=1">Preview a demo channel<Icon name="arrow" /></Link></div>
+        <p className="fine-print">Your initial 12-week plan and first recalibration are free.</p>
+      </div>
+    </div>;
+  }
   return <div className="workspace"><aside className="sidebar"><p className="eyebrow sidebar-label">YOUR WORKSPACE</p><nav aria-label="Report sections">{nav.map(item => <Link key={item.section} href={href(item.path, item.section)} className={active === item.section && pathname === item.path ? "active" : ""} aria-current={active === item.section && pathname === item.path ? "location" : undefined}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><span className="small-orbit" aria-hidden="true">◎</span><h3>Strategy is a loop.</h3><p>Understand. Choose.<br />Create. Recalibrate.</p><span className="sidebar-note-line" /></div><div className="sidebar-bottom"><Icon name="youtube" size={16} /><span>YouTube intelligence</span></div></aside><div className="report-content">
-    {state.status === "loading" ? <StagedLoader /> : state.status === "unauthenticated" ? <div className="connect-state"><div className="connect-orbit"><Icon name="youtube" size={36} /></div><p className="eyebrow">YOUR CHANNEL. A CLEARER DIRECTION.</p><h1>Start with your story.</h1><p>{CONNECTION_AVAILABLE ? "Connect the YouTube channel you own to turn your history into a strategy grounded in your actual results." : "Explore the complete strategy experience with a demo channel. YouTube connection will become available with the live service."}</p><div className="button-row">{CONNECTION_AVAILABLE && <ConnectLink />}<Link className="button button-secondary" href="/dashboard?demo=1">Preview a demo channel<Icon name="arrow" /></Link></div><p className="fine-print">Your initial 12-week plan and first recalibration are free.</p></div> : <>
+    {state.status === "loading" ? <StagedLoader /> : <>
       <div className="report-breadcrumb"><span>WORKSPACE <span aria-hidden="true">/</span> {pathname.endsWith("/plan") ? "YOUR GROWTH PLAN" : "CHANNEL OVERVIEW"}</span>{state.report.source === "demo" ? <MockLabel note="All channel figures in this report are illustrative." /> : <span className="live-label"><span className="status-dot" />Connected channel</span>}</div>
       {state.report.source === "demo" && <div className="demo-notice"><p>{state.report.notice || "You're exploring an illustrative channel. All metrics, ideas, and scenarios below are demo data."}</p>{state.report.notice ? <button onClick={retry} type="button">Retry live report ↗</button> : <Link href="/dashboard?connect=1">Use your channel ↗</Link>}</div>}
       {children}
