@@ -4,25 +4,44 @@ import type { ChannelInOneSentence, ContentDna, Diagnosis, Idea } from "./types"
 import type { OwnChannel } from "./youtube";
 import type { WeeklyChannelState } from "./simulation";
 
+// The model routinely drifts on casing ("High") and length, even when told the rules —
+// normalise and clamp rather than rejecting an otherwise-good diagnosis outright.
+const clampedString = (max: number) =>
+  z.string().trim().min(1).transform((s) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s));
+
+const level = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const s = value.trim().toLowerCase();
+  if (s.includes("high")) return "high";
+  if (s.includes("low")) return "low";
+  if (s.includes("med") || s.includes("moderate")) return "medium";
+  return s;
+}, z.enum(["high", "medium", "low"]));
+
+const hookStyle = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+  z.enum(["bold", "relatable", "curiosity"])
+);
+
 const ideaSchema = z.object({
-  title: z.string().min(1).max(120),
-  trendRelevance: z.enum(["high", "medium", "low"]),
-  audienceFit: z.enum(["high", "medium", "low"]),
+  title: clampedString(120),
+  trendRelevance: level,
+  audienceFit: level,
   hooks: z
-    .array(z.object({ style: z.enum(["bold", "relatable", "curiosity"]), line: z.string().min(1).max(140) }))
+    .array(z.object({ style: hookStyle, line: clampedString(140) }))
     .min(2)
-    .max(3),
+    .transform((hooks) => hooks.slice(0, 3)),
 });
 
 const diagnosisOutputSchema = z.object({
-  headline: z.string().min(1).max(140),
-  explanation: z.string().min(1).max(600),
-  evidence: z.array(z.string().min(1).max(300)).min(1).max(6),
+  headline: clampedString(140),
+  explanation: clampedString(600),
+  evidence: z.array(clampedString(300)).min(1).transform((items) => items.slice(0, 6)),
   channelInOneSentence: z.object({
-    then: z.string().min(1).max(200),
-    now: z.string().min(1).max(200),
+    then: clampedString(200),
+    now: clampedString(200),
   }),
-  ideas: z.array(ideaSchema).min(2).max(3),
+  ideas: z.array(ideaSchema).min(2).transform((ideas) => ideas.slice(0, 3)),
 });
 
 export type DiagnosisOutput = {
@@ -70,6 +89,7 @@ export async function generateDiagnosis(input: {
     "Then suggest 2-3 next-post ideas. Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage, we don't have grounds for that precision), and 2-3 stylistic hook-line variants (bold, relatable, curiosity).",
     "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English regardless of the source language.",
     "Return JSON with keys: headline, explanation, evidence (array of strings), channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
+    "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, each evidence item 300 (max 6 items), then/now 200 each, idea title 120, hook line 140.",
   ].join("\n");
 
   const response = await fetch("https://api.openai.com/v1/responses", {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { CONNECTION_AVAILABLE } from "@/lib/api";
+import { ChatPanel } from "./chat-panel";
 import { useReport } from "./report-provider";
 import { ConnectLink, Icon, MockLabel } from "./ui";
 
@@ -39,6 +40,7 @@ export function Workspace({ children }: { children: ReactNode }) {
       <div className="report-breadcrumb"><span>WORKSPACE <span aria-hidden="true">/</span> {pathname.endsWith("/plan") ? "YOUR GROWTH PLAN" : "CHANNEL OVERVIEW"}</span>{state.report.source === "demo" ? <MockLabel note="All channel figures in this report are illustrative." /> : <span className="live-label"><span className="status-dot" />Connected channel</span>}</div>
       {state.report.source === "demo" && <div className="demo-notice"><p>{state.report.notice || "You're exploring an illustrative channel. All metrics, ideas, and scenarios below are demo data."}</p>{state.report.notice ? <button onClick={retry} type="button">Retry live report ↗</button> : <Link href="/dashboard?connect=1">Use your channel ↗</Link>}</div>}
       {children}
+      <ChatPanel />
     </>}
     <footer className="report-footer"><span>CreatorLENS / A clearer next move.</span><span>Evidence first. Your call, always.</span></footer>
   </div></div>;

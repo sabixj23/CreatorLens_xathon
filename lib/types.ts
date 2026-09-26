@@ -2,6 +2,10 @@
 // so a shape drift between them is a typecheck failure, not a runtime surprise at merge time.
 
 export const UNLOCK_COOKIE_NAME = "clx_unlocked";
+// Server-set, httpOnly counter for free chat replies. Like the unlock cookie, a demo
+// boundary rather than an entitlement system.
+export const CHAT_USED_COOKIE_NAME = "clx_chat_used";
+export const FREE_CHAT_MESSAGES = 5;
 
 export type Diagnosis = {
   headline: string;
@@ -109,10 +113,12 @@ export type RecalibrationResponse = {
   mocked: boolean;
 };
 
-// POST /api/chat — requires the same unlock cookie as /api/recalibration week 3+.
+// POST /api/chat — FREE_CHAT_MESSAGES free replies, then the same unlock cookie as
+// /api/recalibration week 3+ (402 once the free replies are used).
 export type ChatRequest = {
   message: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
 };
 
-export type ChatResponse = { reply: string };
+// freeRemaining is null when the unlock cookie is set (unlimited).
+export type ChatResponse = { reply: string; freeRemaining: number | null };

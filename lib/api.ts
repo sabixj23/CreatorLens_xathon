@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { demoDiagnosis, demoPlans, demoRecalibration } from "./data/fixture";
-import type { DiagnoseResponse, PathId, PlanResponse, RecalibrationResponse } from "./types";
+import type { ChatRequest, ChatResponse, DiagnoseResponse, PathId, PlanResponse, RecalibrationResponse } from "./types";
 
 // Set this when the teammate's OAuth route is available; no page changes required.
 export const CONNECT_HREF = process.env.NEXT_PUBLIC_CONNECT_PATH || "/dashboard?connect=1";
@@ -26,7 +26,8 @@ const planSchema: z.ZodType<PlanResponse> = z.object({
   opportunityMatrix: z.array(z.object({ pathId, effort: level, projectedGrowth: z.number().finite(), risk: level })),
 });
 const recalibrationSchema: z.ZodType<RecalibrationResponse> = z.object({
-  week: z.number().int().min(2).max(12), predicted: count, actual: count, deltaPct: z.number().finite(),
+  // predicted/actual are one week's NET new subscribers — negative on a stalled channel, so not `count`.
+  week: z.number().int().min(2).max(12), predicted: z.number().finite(), actual: z.number().finite(), deltaPct: z.number().finite(),
   adjustedPlan: z.object({ note: z.string(), changes: z.array(z.string()) }), mocked: z.boolean(),
 });
 export class ApiError extends Error {
@@ -64,4 +65,13 @@ export async function getRecalibration(week: number, demo: boolean, signal?: Abo
   const result = await request(`/api/recalibration?week=${week}`, recalibrationSchema, signal);
   if (result.week !== week) throw new ApiError(502, "The service returned a different checkpoint.");
   return result;
+}
+const chatSchema: z.ZodType<ChatResponse> = z.object({ reply: z.string(), freeRemaining: z.number().int().nonnegative().nullable() });
+export async function sendChat(body: ChatRequest, signal?: AbortSignal): Promise<ChatResponse> {
+  const timeout = AbortSignal.timeout(60000);
+  const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin", cache: "no-store", signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+  if (!response.ok) throw new ApiError(response.status, `Request failed (${response.status}).`);
+  const parsed = chatSchema.safeParse(await response.json());
+  if (!parsed.success) throw new ApiError(502, "The service returned an incomplete reply.");
+  return parsed.data;
 }
