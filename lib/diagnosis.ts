@@ -36,7 +36,7 @@ const ideaSchema = z.object({
 
 const diagnosisOutputSchema = z.object({
   headline: clampedString(140),
-  explanation: clampedString(600),
+  explanation: z.array(clampedString(200)).min(2).transform((items) => items.slice(0, 4)),
   evidence: z.array(clampedString(300)).min(1).transform((items) => items.slice(0, 6)),
   channelInOneSentence: z.object({
     then: clampedString(200),
@@ -81,12 +81,12 @@ export async function generateDiagnosis(input: {
     `This channel's Shorts: ${describeShortsStats(input.shortsStats)}`,
     "",
     "CreatorLENS is a YouTube Shorts growth strategist. Use the whole-channel numbers as context, but every recommendation must be about Shorts — never advise making more long-form videos.",
-    "Find ONE sharp, non-obvious reason this channel's growth has stalled, framed around its Shorts strategy (topics, hooks, cadence) and grounded in the numbers above — not generic advice like 'post more consistently'. Cite specific numbers in the evidence array.",
+    "Find ONE sharp, non-obvious reason this channel's growth has stalled, framed around its Shorts strategy (topics, hooks, cadence) and grounded in the numbers above — not generic advice like 'post more consistently'. Write the explanation as 2-4 short, point-form observations (not a paragraph) that build to that reason, each one a complete thought on its own. Cite specific numbers in the evidence array.",
     "Then write a short 'channel in one sentence' before/after contrast: what pattern historically drove growth (`then`), and how the recent period has drifted from it (`now`). Both must be grounded in the data given, not invented.",
     "Then suggest 2-3 next Shorts ideas (vertical, under 3 minutes). Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage, we don't have grounds for that precision), and 2-3 stylistic hook-line variants (bold, relatable, curiosity) — each hook is the line spoken or shown in the first 1-2 seconds of the Short.",
     "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English regardless of the source language.",
     "Return JSON with keys: headline, explanation, evidence (array of strings), channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
-    "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, each evidence item 300 (max 6 items), then/now 200 each, idea title 120, hook line 140.",
+    "Strict format rules: explanation is a JSON array of 2-4 strings (point-form), not one string. trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, each explanation point 200 (2-4 points), each evidence item 300 (max 6 items), then/now 200 each, idea title 120, hook line 140.",
   ].join("\n");
 
   const response = await fetch("https://api.openai.com/v1/responses", {

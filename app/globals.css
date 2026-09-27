@@ -196,12 +196,7 @@ summary::-webkit-details-marker { display: none; }
 .streak-copy strong { font-size: 15px; color: var(--beige); font-weight: 500; }
 .streak-copy span { font-size: 12px; color: var(--text-dim); }
 .streak-reminder-on { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--good); flex-shrink: 0; }
-.streak-email-preview { padding: 0 23px 22px; border-top: 1px solid var(--line); margin-top: 2px; padding-top: 20px; }
-.streak-email-meta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
-.streak-email-meta strong { color: var(--text); font-weight: 500; }
-.streak-email-frame { width: 100%; height: 340px; border: 1px solid var(--line); border-radius: 6px; background: #030711; }
-.streak-email-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 16px; }
-.streak-email-actions .fine-print { margin: 0; }
+.streak-error { padding: 0 23px 16px; margin: 0; }
 .channel-stat strong { display: block; font-size: 22px; font-weight: 400; color: var(--beige); line-height: 1.2; }
 .channel-stat span { font-size: 12px; color: var(--text-dim); }
 .shorts-notice { margin-top: 14px; padding: 14px 18px; border: 1px solid #615336; background: #bc94440f; border-radius: 10px; }
@@ -217,6 +212,9 @@ summary::-webkit-details-marker { display: none; }
 .diagnosis-main { padding: 29px; }
 .diagnosis-main h3 { font-size: 29px; color: var(--beige); margin: 21px 0 17px; line-height: 1.25; }
 .diagnosis-main > p { font-size: 13px; line-height: 1.85; }
+.explanation-points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.explanation-points li { font-size: 13px; line-height: 1.6; padding-left: 18px; position: relative; }
+.explanation-points li::before { content: "—"; position: absolute; left: 0; color: var(--path-b); }
 .evidence { padding: 30px; border-left: 1px solid var(--line); }
 .evidence > .eyebrow { font-size: 12px; }
 .evidence ol { list-style: none; margin: 19px 0 0; padding: 0; }
@@ -713,7 +711,7 @@ h1 em, .economics-section h2 em, .closing-cta h2 em { background: linear-gradien
   .diagnosis-card { grid-template-columns: 1fr; }
   .diagnosis-main, .evidence { padding: 23px; }
   .diagnosis-main h3 { font-size: 27px; }
-  .diagnosis-main > p { font-size: 12px; }
+  .diagnosis-main > p, .explanation-points li { font-size: 12px; }
   .evidence { border-left: 0; border-top: 1px solid var(--line); }
   .economics-section { grid-template-columns: 1fr; gap: 28px; }
   .economics-section h2 { font-size: 36px; }

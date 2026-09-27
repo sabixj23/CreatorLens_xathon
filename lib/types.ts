@@ -11,7 +11,7 @@ export const FREE_CHAT_MESSAGES = 5;
 
 export type Diagnosis = {
   headline: string;
-  explanation: string;
+  explanation: string[]; // point-form observations, not a paragraph
   evidence: string[];
 };
 
