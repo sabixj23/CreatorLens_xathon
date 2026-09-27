@@ -1,49 +1,66 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { buildStreakReminderEmail } from "@/lib/email-template";
 import type { DiagnoseResponse } from "@/lib/types";
 import { Icon } from "./ui";
 
-// The streak number is real — computed from this channel's actual upload history,
-// not a separate counter that can drift from what really happened.
+type SendState = { status: "idle" } | { status: "sending" } | { status: "sent"; to: string } | { status: "error"; message: string };
+
+// The streak is real — computed from this channel's actual upload history, not a
+// separate counter. The email preview below is built from the exact same template
+// function the real send uses (lib/email-template.ts), so what's shown here is what
+// would actually land in an inbox, not a separate hand-maintained mockup.
 //
-// The reminder button below fires a genuine browser Notification (a real OS-level
-// popup on desktop and Android Chrome), not a mockup. What it deliberately isn't:
-// a persistent, cross-device push system that can notify someone hours later when
-// this tab isn't open — that needs a push server and a service worker subscription
-// store, real backend infrastructure this build doesn't have. Being upfront about
-// that distinction here rather than implying more than what's built.
-export function StreakBadge({ streak }: { streak: DiagnoseResponse["streak"] }) {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+// Chosen over push notifications specifically because it needs no service worker or
+// push-subscription backend — one API key (Resend) and a plain POST route. What it
+// isn't: a scheduled, automatic reminder system — this build sends on request, not on
+// a timer, since a real schedule needs a server-side cron trigger, not just an endpoint.
+export function StreakBadge({ streak, channelTitle }: { streak: DiagnoseResponse["streak"]; channelTitle: string }) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [send, setSend] = useState<SendState>({ status: "idle" });
+  const { subject, html } = buildStreakReminderEmail(channelTitle, streak);
 
-  useEffect(() => {
-    setPermission(typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
-  }, []);
-
-  async function enableReminders() {
-    if (!("Notification" in window)) return;
-    const result = await Notification.requestPermission();
-    setPermission(result);
-    if (result === "granted") {
-      new Notification("🔥 Keep your streak alive!", {
-        body: `You're on a ${streak.currentWeeks}-week streak. Post this week to keep it going.`,
-      });
+  async function sendReminder() {
+    setSend({ status: "sending" });
+    try {
+      const response = await fetch("/api/streak-email", { method: "POST", credentials: "same-origin" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send the reminder email.");
+      setSend({ status: "sent", to: data.to });
+    } catch (error) {
+      setSend({ status: "error", message: error instanceof Error ? error.message : "Could not send the reminder email." });
     }
   }
 
   return (
     <div className="streak-badge">
-      <span className="streak-flame" aria-hidden="true">🔥</span>
-      <div className="streak-copy">
-        <strong>{streak.currentWeeks}-week streak</strong>
-        <span>Longest streak: {streak.longestWeeks} weeks · from your real upload history</span>
-      </div>
-      {permission === "unsupported" ? null : permission === "granted" ? (
-        <span className="streak-reminder-on"><Icon name="check" size={14} />Reminders on</span>
-      ) : (
-        <button type="button" className="button button-secondary streak-reminder-btn" onClick={enableReminders}>
-          Enable streak reminders
+      <div className="streak-badge-row">
+        <span className="streak-flame" aria-hidden="true">🔥</span>
+        <div className="streak-copy">
+          <strong>{streak.currentWeeks}-week streak</strong>
+          <span>Longest streak: {streak.longestWeeks} weeks · from your real upload history</span>
+        </div>
+        <button type="button" className="button button-secondary" onClick={() => setShowPreview(v => !v)}>
+          {showPreview ? "Hide reminder email" : "Preview reminder email"}
         </button>
+      </div>
+      {showPreview && (
+        <div className="streak-email-preview">
+          <div className="streak-email-meta"><span>Subject</span><strong>{subject}</strong></div>
+          <iframe title="Streak reminder email preview" srcDoc={html} className="streak-email-frame" />
+          <div className="streak-email-actions">
+            {send.status === "sent" ? (
+              <span className="streak-reminder-on"><Icon name="check" size={14} />Sent to {send.to}</span>
+            ) : (
+              <button type="button" className="button button-primary" disabled={send.status === "sending"} onClick={sendReminder}>
+                {send.status === "sending" ? "Sending…" : "Send me a real one"}
+              </button>
+            )}
+            {send.status === "error" && <p role="alert" className="error-note">{send.message}</p>}
+            <p className="fine-print">Sends to the email on this Google account. Requires a sending domain to be verified for any inbox other than the connected Resend account&apos;s own during testing.</p>
+          </div>
+        </div>
       )}
     </div>
   );

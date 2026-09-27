@@ -90,14 +90,9 @@ const checkpoints: Record<number, { actual: number; note: string; changes: strin
     note: "The companion Short's click-through into the full guide beat the model's assumption by 18% this week — a small but real early signal.",
     changes: ["Keep the same 1 guide + 1 Short mix for week 3.", "Tighten the Short's link back to the guide even further."],
   },
-  3: {
-    actual: 132400,
-    note: "This week's ingredient deep dive converted subscribers at 4.1%, nearly double the standard guide's 2.3%. One data point — worth testing again before committing.",
-    changes: ["Swap week 4's planned Short for a second deep dive.", "Hold the core guide steady as the comparison point."],
-  },
   4: {
     actual: 134900,
-    note: "Two deep dives in a row confirm the pattern: this format is outperforming the original Balanced mix by a wide margin. The plan has been reweighted for the remaining 8 weeks — not just this one.",
+    note: "This week's ingredient deep dive converted subscribers at 4.1%, nearly double the standard guide's 2.3% — strong enough on its own to reweight the plan for the remaining 8 weeks, not just this one.",
     changes: ["Shift weeks 5–12 to 2 deep dives + 1 guide per week, replacing the original 1 guide + 1 Short split.", "Retire the Short format from the core rotation unless a future checkpoint says otherwise."],
   },
   8: {
