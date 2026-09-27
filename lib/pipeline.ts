@@ -5,8 +5,8 @@ import type { DiagnosisOutput } from "./diagnosis";
 import { generateDiagnosis } from "./diagnosis";
 import { getOrCompute } from "./session-cache";
 import type { GrowthModel, SimulatedPath, WeeklyChannelState } from "./simulation";
-import { backtest, buildWeeklyHistory, fitGrowthModel, recentAverages, simulatePaths } from "./simulation";
-import type { Backtest, ContentDna } from "./types";
+import { backtest, buildWeeklyHistory, computeStreak, fitGrowthModel, recentAverages, simulatePaths } from "./simulation";
+import type { Backtest, ContentDna, Streak } from "./types";
 import type { OwnChannel } from "./youtube";
 import { getMyAnalyticsHistory, getMyChannel, getMyRecentVideos } from "./youtube";
 
@@ -19,6 +19,7 @@ export type ChannelBundle = {
   paths: SimulatedPath[];
   backtestResult: Backtest | null;
   diagnosisOutput: DiagnosisOutput;
+  streak: Streak;
 };
 
 // Everything an authenticated request needs, computed once per session and reused by
@@ -38,8 +39,9 @@ export async function getChannelBundle(accessToken: string): Promise<ChannelBund
     const { cadencePerWeek } = recentAverages(weeklyHistory);
     const paths = simulatePaths(channel.subscriberCount, cadencePerWeek, model, comparables);
     const backtestResult = backtest(weeklyHistory);
+    const streak = computeStreak(weeklyHistory);
     const diagnosisOutput = await generateDiagnosis({ channel, weeklyHistory, contentDna, comparables });
 
-    return { channel, weeklyHistory, contentDna, comparables, model, paths, backtestResult, diagnosisOutput };
+    return { channel, weeklyHistory, contentDna, comparables, model, paths, backtestResult, diagnosisOutput, streak };
   });
 }

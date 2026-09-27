@@ -1,6 +1,6 @@
 import { fitOls } from "./regression";
 import type { DailyAnalytics, OwnVideo } from "./youtube";
-import type { Backtest, BenchmarkRow, GrowthPath, KpiTile, OpportunityRow, PathId } from "./types";
+import type { Backtest, BenchmarkRow, GrowthPath, KpiTile, OpportunityRow, PathId, Streak } from "./types";
 
 export type WeeklyChannelState = {
   weekIndex: number;
@@ -63,6 +63,28 @@ export function recentAverages(history: WeeklyChannelState[], weeks = 4): { cade
     cadencePerWeek: recent.reduce((sum, w) => sum + w.cadencePerWeek, 0) / recent.length,
     shortsPct: recent.reduce((sum, w) => sum + w.shortsPct, 0) / recent.length,
   };
+}
+
+// Real streak from real upload weeks — the most recent run of consecutive weeks with
+// at least one upload, and the longest such run anywhere in the available history.
+// Not a separately tracked counter, so it can never drift from what actually happened.
+export function computeStreak(history: WeeklyChannelState[]): Streak {
+  let currentWeeks = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].cadencePerWeek > 0) currentWeeks++;
+    else break;
+  }
+  let longestWeeks = 0;
+  let run = 0;
+  for (const week of history) {
+    if (week.cadencePerWeek > 0) {
+      run++;
+      longestWeeks = Math.max(longestWeeks, run);
+    } else {
+      run = 0;
+    }
+  }
+  return { currentWeeks, longestWeeks };
 }
 
 export type GrowthModel = { intercept: number; cadenceCoef: number; shortsPctCoef: number };

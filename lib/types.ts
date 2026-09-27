@@ -49,6 +49,14 @@ export type Backtest = {
   meanErrorPct: number;
 };
 
+// Computed from the creator's own real upload history (consecutive weeks with at
+// least one upload) — not a separately tracked counter, so it can't drift from
+// what actually happened on the channel.
+export type Streak = {
+  currentWeeks: number;
+  longestWeeks: number;
+};
+
 // GET /api/diagnose — requires an authenticated session.
 // Returns 401 JSON (never a redirect) when unauthenticated.
 export type DiagnoseResponse = {
@@ -65,6 +73,7 @@ export type DiagnoseResponse = {
   // null until the real backtest has run — never fabricate a 0, that reads as a claim
   // of perfect accuracy. Frontend suppresses every accuracy claim when this is null.
   backtest: Backtest | null;
+  streak: Streak;
 };
 
 export type KpiTile = {

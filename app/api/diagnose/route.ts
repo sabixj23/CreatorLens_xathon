@@ -34,6 +34,7 @@ export async function GET() {
       })),
       // null until real — never a placeholder 0, that reads as a claim of perfect accuracy.
       backtest: bundle.backtestResult,
+      streak: bundle.streak,
     };
 
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });

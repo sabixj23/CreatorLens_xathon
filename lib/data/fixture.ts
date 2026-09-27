@@ -44,6 +44,7 @@ export const demoDiagnosis: DiagnoseResponse = {
     { id: "C", name: "Experiment", oneLiner: "Give your next chapter a real test.", weekOnePlan: ["Pilot a new weeknight cooking series.", "Use a companion Short to introduce the series, then review audience response."], projectedWeek12Subs: 148920, tradeOff: "More creative range and a wider possible outcome, with higher production effort and more audience uncertainty." },
   ],
   backtest: null,
+  streak: { currentWeeks: 6, longestWeeks: 11 },
 };
 
 const trajectories: Record<PathId, number[]> = {
@@ -77,14 +78,46 @@ export const demoPlans = Object.fromEntries(demoDiagnosis.paths.map(path => [pat
   opportunityMatrix: demoDiagnosis.paths.map((p, i) => ({ pathId: p.id, effort: (["low", "medium", "high"] as const)[i], risk: (["low", "medium", "high"] as const)[i], projectedGrowth: p.projectedWeek12Subs - demoDiagnosis.channel.subscriberCount })),
 }])) as Record<PathId, PlanResponse>;
 
+// A deliberately escalating story across the five checkpoints CreatorLENS Pro
+// actually offers (week-timeline.tsx uses weeks 2, 3, 4, 8, 12): a small early
+// signal, a specific finding, a real mid-course pivot, then the compounding
+// payoff of having made that pivot. Each note cites the number behind it —
+// same evidence-first standard as the diagnosis — so it reads as a model
+// genuinely updating itself, not a static, cosmetic percentage.
+const checkpoints: Record<number, { actual: number; note: string; changes: string[] }> = {
+  2: {
+    actual: 130550,
+    note: "The companion Short's click-through into the full guide beat the model's assumption by 18% this week — a small but real early signal.",
+    changes: ["Keep the same 1 guide + 1 Short mix for week 3.", "Tighten the Short's link back to the guide even further."],
+  },
+  3: {
+    actual: 132400,
+    note: "This week's ingredient deep dive converted subscribers at 4.1%, nearly double the standard guide's 2.3%. One data point — worth testing again before committing.",
+    changes: ["Swap week 4's planned Short for a second deep dive.", "Hold the core guide steady as the comparison point."],
+  },
+  4: {
+    actual: 134900,
+    note: "Two deep dives in a row confirm the pattern: this format is outperforming the original Balanced mix by a wide margin. The plan has been reweighted for the remaining 8 weeks — not just this one.",
+    changes: ["Shift weeks 5–12 to 2 deep dives + 1 guide per week, replacing the original 1 guide + 1 Short split.", "Retire the Short format from the core rotation unless a future checkpoint says otherwise."],
+  },
+  8: {
+    actual: 144200,
+    note: "Four weeks into the reweighted mix, growth is running 5.5% ahead of where the original, un-adjusted Balanced projection would have put you by now. The pivot from week 4 is compounding, not a one-off bump.",
+    changes: ["Hold the reweighted 2 deep-dive + 1 guide mix through week 12.", "Bank one deep dive as a template to speed up production."],
+  },
+  12: {
+    actual: 156800,
+    note: "At the original 12-week mark, the reweighted plan finished 8.0% ahead of the un-adjusted Balanced scenario from week 1. This is what CreatorLENS actually does — not one projection made once, but a plan that keeps updating as your real results come in.",
+    changes: ["Start the next 12-week cycle from this channel's new baseline.", "Carry the deep-dive format forward as the proven core, not an experiment."],
+  },
+};
+
 export function demoRecalibration(week: number): RecalibrationResponse {
   const predicted = trajectories.B[week - 1];
-  const actual = predicted - (week === 2 ? 350 : 520);
+  const checkpoint = checkpoints[week] ?? checkpoints[2];
+  const actual = checkpoint.actual;
   return {
     week, predicted, actual, deltaPct: Number(((actual - predicted) / predicted * 100).toFixed(2)), mocked: true,
-    adjustedPlan: {
-      note: "The original Balanced scenario is slightly ahead of this scripted result. Keep the practical guide; refine the supporting Short before adding more output.",
-      changes: ["Keep one core guide in the next week.", "Make the companion Short's link to the full recipe explicit.", "Review the next checkpoint before increasing production."],
-    },
+    adjustedPlan: { note: checkpoint.note, changes: checkpoint.changes },
   };
 }

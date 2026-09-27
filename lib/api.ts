@@ -16,6 +16,7 @@ const diagnosisSchema: z.ZodType<DiagnoseResponse> = z.object({
   ideas: z.array(z.object({ title: z.string(), trendRelevance: level, audienceFit: level, hooks: z.array(z.object({ style: z.enum(["bold", "relatable", "curiosity"]), line: z.string() })) })),
   paths: z.array(z.object({ id: pathId, name: z.string(), oneLiner: z.string(), weekOnePlan: z.array(z.string()), projectedWeek12Subs: count, tradeOff: z.string() })).refine(paths => paths.length === 3 && new Set(paths.map(p => p.id)).size === 3),
   backtest: z.object({ channelsTested: z.number().int().positive(), meanErrorPct: count }).nullable(),
+  streak: z.object({ currentWeeks: z.number().int().nonnegative(), longestWeeks: z.number().int().nonnegative() }),
 });
 const planSchema: z.ZodType<PlanResponse> = z.object({
   weeklyProjection: z.array(z.object({ week: z.number().int().min(1).max(12), subs: count })).length(12).refine(rows => new Set(rows.map(r => r.week)).size === 12),
