@@ -20,7 +20,7 @@ export function Icon({ name, size = 20 }: { name: "arrow" | "grid" | "diagnosis"
 export function Brand() {
   return <Link href="/" className="brand" aria-label="CreatorLENS home"><span className="brand-symbol" aria-hidden="true"><i /></span><span>Creator<span className="brand-light">LENS</span></span></Link>;
 }
-export function ConnectLink({ children = "Connect YouTube", secondary = false }: { children?: ReactNode; secondary?: boolean }) {
+export function ConnectLink({ children = "Connect your account", secondary = false }: { children?: ReactNode; secondary?: boolean }) {
   return <a className={`button ${secondary ? "button-secondary" : "button-primary"}`} href={CONNECT_HREF}><Icon name="youtube" size={18} />{children}<Icon name="arrow" size={17} /></a>;
 }
 export function MockLabel({ note, label = "Demo channel" }: { note?: string; label?: string }) {

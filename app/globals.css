@@ -52,11 +52,6 @@ section[id] { scroll-margin-top: 110px; }
 .brand-symbol::before { content: ""; position: absolute; inset: 5px; border: 1px solid var(--beige); border-radius: 50%; }
 .brand-symbol i { position: absolute; inset: 10px; background: var(--beige); border-radius: 50%; }
 .header-note { font-size: 12px; letter-spacing: .16em; color: var(--text-dim); padding-left: 30px; border-left: 1px solid var(--line); }
-.site-header nav { margin-left: auto; display: flex; align-items: center; gap: 32px; font-size: 12px; }
-.site-header nav a { min-height: 40px; display: inline-flex; align-items: center; }
-.site-header nav a:hover { color: var(--beige); }
-.header-demo { border: 1px solid var(--navy-600); padding: 9px 16px; border-radius: 3px; gap: 20px; }
-.header-demo:hover { background: var(--navy-800); }
 .eyebrow { font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: .15em; color: var(--text-dim); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
 .eyebrow > span:first-child:not(.status-dot) { color: var(--text-dim); }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--path-b); display: inline-block; flex-shrink: 0; }
@@ -444,11 +439,6 @@ main { position: relative; isolation: isolate; }
 .brand-symbol::before { border-color: transparent; border-top-color: var(--beige); border-right-color: rgba(238, 228, 207, .5); animation: spin 7s linear infinite; }
 .brand-symbol i { box-shadow: 0 0 10px var(--beige); animation: pulse 3.2s ease-in-out infinite; }
 .brand:hover .brand-symbol::before { animation-duration: 1.4s; }
-.site-header nav a:not(.header-demo) { position: relative; }
-.site-header nav a:not(.header-demo)::after { content: ""; position: absolute; left: 0; right: 0; bottom: 8px; height: 1px; background: var(--beige); transform: scaleX(0); transform-origin: right; transition: transform .35s var(--ease); }
-.site-header nav a:not(.header-demo):hover::after { transform: scaleX(1); transform-origin: left; }
-.header-demo { border-color: rgba(238, 228, 207, .18); background: rgba(238, 228, 207, .03); border-radius: 999px; transition: all .3s var(--ease); }
-.header-demo:hover { background: rgba(238, 228, 207, .09); border-color: rgba(238, 228, 207, .4); box-shadow: 0 0 24px rgba(238, 228, 207, .12); color: var(--beige); }
 
 /* ───────────── Type ───────────── */
 h1 { background: linear-gradient(180deg, #fffaf0 10%, #d9ccae 95%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -674,9 +664,6 @@ h1 em, .economics-section h2 em, .closing-cta h2 em { background: linear-gradien
   .brand { font-size: 20px; gap: 8px; }
   .brand-symbol { width: 24px; height: 24px; }
   .brand-symbol i { inset: 9px; }
-  .site-header nav { gap: 12px; }
-  .site-header nav > a:first-child { display: none; }
-  .header-demo { padding: 8px 10px; font-size: 12px; gap: 9px; }
   .landing-hero { padding: 45px 22px 35px; gap: 37px; }
   .hero-copy > .eyebrow { font-size: 12px; letter-spacing: .1em; margin-bottom: 23px; }
   .hero-copy h1 { font-size: clamp(46px, 11.9vw, 66px); }
