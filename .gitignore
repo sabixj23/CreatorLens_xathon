@@ -17,8 +17,7 @@
 !/lib/**
 !/public/
 !/public/**
-!/temp/
-!/temp/first_build_plan.md
+
 
 node_modules/
 .next/
