@@ -40,7 +40,7 @@ export function StrategyFork({ diagnosis, plans, selected, onSelect }: { diagnos
         <p className="eyebrow">TWO-WEEK TEST</p>
         <h4>{test.assumption}</h4>
         <ul>{test.schedule.map(line => <li key={line}>{line}</li>)}</ul>
-        <p><b>Primary measure:</b> {test.primaryMetric.label} <span className="fine-print">({test.primaryMetric.scope})</span></p>
+        <p><b>Primary measure:</b> {test.primaryMetric.label}</p>
         <p><b>Decision rule:</b> {test.decisionRule.text}</p>
         <p className="fine-print"><b>Hold roughly constant:</b> {test.holdConstant.join(" · ")}. <b>Minimum data:</b> {test.minimumData}</p>
       </div>
