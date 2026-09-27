@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useReport } from "./report-provider";
-import { BacktestProof, CrossPlatform, IdeaCard, KpiScorecard, OpportunityMatrix } from "./report-cards";
+import { BacktestProof, CrossPlatform, IdeaCard, KpiScorecard } from "./report-cards";
 import { StrategyFork } from "./strategy-fork";
 import { WeekTimeline } from "./week-timeline";
 import { WeeklyTimeline } from "./weekly-timeline";
@@ -17,7 +17,7 @@ export function PlanReport() {
   const plan = plans[selected];
   const path = diagnosis.paths.find(p => p.id === selected)!;
   return <>
-    <section id="strategy" data-nav-section className="overview-section"><div className="page-heading"><div><p className="eyebrow">YOUR STRATEGIC FORK</p><h1>Three paths. Your call.</h1><p>Different trade-offs. One complete, free 12-week view.</p></div><Link className="text-link" href={href("/dashboard", "overview")}>← Back to your channel</Link></div><StrategyFork diagnosis={diagnosis} plans={plans} selected={selected} onSelect={select} /><OpportunityMatrix items={plan.opportunityMatrix} paths={diagnosis.paths} selected={selected} /></section>
+    <section id="strategy" data-nav-section className="overview-section"><div className="page-heading"><div><p className="eyebrow">YOUR STRATEGIC FORK</p><h1>Three paths. Your call.</h1><p>Different trade-offs. One complete, free 12-week view.</p></div><Link className="text-link" href={href("/dashboard", "overview")}>← Back to your channel</Link></div><StrategyFork diagnosis={diagnosis} plans={plans} selected={selected} onSelect={select} /></section>
     <section id="simulator" data-nav-section className="report-section"><SectionHeading number="01" eyebrow="THE WEEKLY RHYTHM" title="Small steps. A considered direction."><span className="section-pill">{path.name}</span></SectionHeading><p className="section-intro">Click a week to see that week&apos;s action.</p><WeeklyTimeline actions={plan.weeklyActions} /></section>
     <section id="recalibration" className="report-section"><SectionHeading number="02" eyebrow="CLOSE THE LOOP" title="What changed? What comes next?"><p>Week 2 is free. Continue with Pro from week 3.</p></SectionHeading><WeekTimeline demo={source === "demo"} /><BacktestProof backtest={diagnosis.backtest} /></section>
     <section className="report-section" id="scorecard"><SectionHeading number="03" eyebrow="YOUR PERFORMANCE BRIEF" title="Keep the whole picture in view." /><KpiScorecard items={plan.kpiScorecard} /></section>
