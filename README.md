@@ -16,7 +16,7 @@ Open `http://localhost:3000`. No API keys or backend are needed for the demo.
 - `/dashboard/plan?demo=1` — all 12 weeks and the recalibration flow.
 - `/dashboard?connect=1` — connection entry screen while OAuth is being integrated.
 
-The demo uses an invented channel, **The Everyday Table**. Its metrics, comparable channels, projections, and checkpoint results are illustrative. A persistent “Demo channel” notice identifies the report. Checkpoints say “Scripted demo,” cross-platform cards say “Mocked preview,” and `backtest` is `null`, so no measured accuracy is claimed.
+The demo uses an invented channel, **The Everyday Table**. Its metrics, projections, and checkpoint results are illustrative. A persistent “Demo channel” notice identifies the report. Checkpoints say “Scripted demo,” cross-platform cards say “Mocked preview,” and `backtest` is `null`, so no measured accuracy is claimed.
 
 The current build does not implement OAuth, YouTube/OpenAI calls, the growth model, or API entitlement checks. Those belong to the backend track. Chat is deferred until its route exists.
 
@@ -49,7 +49,9 @@ NEXT_PUBLIC_CONNECT_PATH=/api/connect
 
 The Connect YouTube links will then use that route. The frontend imports no auth library and does not handle Google tokens or secrets. The teammate owns OAuth setup, refresh handling, data fetching, the model, and enforcement of the demo cookie.
 
-The UI labels KPI values with the API-provided labels. Include the metric period and unit there. The benchmark's `formatMixPct` is displayed as “Format mix” because the current contract does not identify the format in that field. Agree on that metric definition when integrating.
+The UI labels KPI values with the API-provided labels. Include the metric period and unit there.
+
+CreatorLENS focuses on YouTube Shorts. The whole channel is analysed (subscriber growth is channel-wide), but every path, idea and recommendation is about Shorts. Shorts are videos up to 180 seconds (`SHORTS_MAX_SECONDS` in `lib/youtube.ts`). The growth model fits weekly net subscribers against Shorts per week, with long-form per week as a control. Each path is a Shorts cadence plus how many Shorts test a new topic or hook versus staying on "proven topics": title keywords whose Shorts beat the channel's average Short on subscribers per 1k views (from the Analytics per-video report, falling back to average views). Channels with fewer than `MIN_SHORTS` Shorts get a notice on the dashboard. There is no comparison against other channels — the YouTube Analytics API only returns data for channels the signed-in user owns.
 
 Checkpoint requests do not include a selected path in the current contract. They compare the server's saved baseline. Exploring another path only changes the frontend scenario and weekly actions; it does not silently change the checkpoint baseline.
 

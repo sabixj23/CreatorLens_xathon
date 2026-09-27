@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { ComparableChannelFixture } from "./comparables";
+import type { FormatStats, ShortsStats } from "./format-stats";
+import { describeFormatStats, describeShortsStats } from "./format-stats";
 import type { ChannelInOneSentence, ContentDna, Diagnosis, Idea } from "./types";
 import type { OwnChannel } from "./youtube";
 import type { WeeklyChannelState } from "./simulation";
@@ -56,10 +57,8 @@ function summariseWeeklyHistory(history: WeeklyChannelState[]): string {
   const earlier = history.slice(0, 8);
   const describe = (weeks: WeeklyChannelState[]) => {
     if (weeks.length === 0) return "no data";
-    const avgCadence = weeks.reduce((sum, w) => sum + w.cadencePerWeek, 0) / weeks.length;
-    const avgShortsPct = weeks.reduce((sum, w) => sum + w.shortsPct, 0) / weeks.length;
-    const avgNetSubs = weeks.reduce((sum, w) => sum + w.netSubs, 0) / weeks.length;
-    return `avg cadence ${avgCadence.toFixed(1)}/wk, ${Math.round(avgShortsPct * 100)}% Shorts, avg net subs/wk ${avgNetSubs.toFixed(0)}`;
+    const avg = (key: "shortsPerWeek" | "longFormPerWeek" | "netSubs") => weeks.reduce((sum, w) => sum + w[key], 0) / weeks.length;
+    return `avg ${avg("shortsPerWeek").toFixed(1)} Shorts/wk, ${avg("longFormPerWeek").toFixed(1)} long-form/wk, avg net subs/wk ${avg("netSubs").toFixed(0)}`;
   };
   return `Earliest available weeks: ${describe(earlier)}. Most recent 8 weeks: ${describe(recent)}.`;
 }
@@ -68,25 +67,23 @@ export async function generateDiagnosis(input: {
   channel: OwnChannel;
   weeklyHistory: WeeklyChannelState[];
   contentDna: ContentDna;
-  comparables: ComparableChannelFixture[];
+  formatStats: FormatStats;
+  shortsStats: ShortsStats;
 }): Promise<DiagnosisOutput> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
-
-  const trendContext = input.comparables
-    .flatMap((c) => c.recentTopVideos.map((v) => `"${v.title}" (${c.title})`))
-    .slice(0, 10)
-    .join(", ");
 
   const prompt = [
     `Channel: ${input.channel.title}, ${input.channel.subscriberCount} subscribers.`,
     summariseWeeklyHistory(input.weeklyHistory),
     `Content DNA computed from this channel's own video history — top topics: ${input.contentDna.topTopics.join(", ") || "none detected"}; top formats by average views: ${input.contentDna.topFormats.join(", ") || "none detected"}; top hook styles by view-weighted frequency: ${input.contentDna.topHookStyles.join(", ") || "none detected"}.`,
-    `What's working in this niche right now (recent top videos from comparable channels, for context only — never treat this as this channel's own performance): ${trendContext || "no comparable data available"}.`,
+    `Shorts vs long-form on this channel (its own videos): ${describeFormatStats(input.formatStats)}.`,
+    `This channel's Shorts: ${describeShortsStats(input.shortsStats)}`,
     "",
-    "Find ONE sharp, non-obvious reason this channel's growth has stalled, grounded in the numbers above — not generic advice like 'post more consistently'. Cite specific numbers in the evidence array.",
+    "CreatorLENS is a YouTube Shorts growth strategist. Use the whole-channel numbers as context, but every recommendation must be about Shorts — never advise making more long-form videos.",
+    "Find ONE sharp, non-obvious reason this channel's growth has stalled, framed around its Shorts strategy (topics, hooks, cadence) and grounded in the numbers above — not generic advice like 'post more consistently'. Cite specific numbers in the evidence array.",
     "Then write a short 'channel in one sentence' before/after contrast: what pattern historically drove growth (`then`), and how the recent period has drifted from it (`now`). Both must be grounded in the data given, not invented.",
-    "Then suggest 2-3 next-post ideas. Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage, we don't have grounds for that precision), and 2-3 stylistic hook-line variants (bold, relatable, curiosity).",
+    "Then suggest 2-3 next Shorts ideas (vertical, under 3 minutes). Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage, we don't have grounds for that precision), and 2-3 stylistic hook-line variants (bold, relatable, curiosity) — each hook is the line spoken or shown in the first 1-2 seconds of the Short.",
     "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English regardless of the source language.",
     "Return JSON with keys: headline, explanation, evidence (array of strings), channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
     "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, each evidence item 300 (max 6 items), then/now 200 each, idea title 120, hook line 140.",

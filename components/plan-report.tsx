@@ -9,7 +9,7 @@ import { WeeklyTimeline } from "./weekly-timeline";
 import { SectionHeading } from "./ui";
 
 // Page 2: Strategy, Simulator, Ideas — the "choose and act" half of the report.
-// Overview/Diagnosis/Content DNA live on /dashboard (see dashboard-report.tsx).
+// Overview/Diagnosis live on /dashboard (see dashboard-report.tsx).
 export function PlanReport() {
   const { state, selected, select, href } = useReport();
   if (state.status !== "ready") return null;

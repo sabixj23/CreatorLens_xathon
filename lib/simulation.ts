@@ -1,12 +1,16 @@
 import { fitOls } from "./regression";
 import type { DailyAnalytics, OwnVideo } from "./youtube";
-import type { Backtest, BenchmarkRow, GrowthPath, KpiTile, OpportunityRow, PathId, Streak } from "./types";
+import type { ShortsStats } from "./format-stats";
+import { describeShortsGap } from "./format-stats";
+import type { Backtest, GrowthPath, KpiTile, OpportunityRow, PathId, Streak } from "./types";
 
 export type WeeklyChannelState = {
   weekIndex: number;
   weekStart: string;
-  cadencePerWeek: number;
+  cadencePerWeek: number; // all uploads
   shortsPct: number; // 0-1
+  shortsPerWeek: number;
+  longFormPerWeek: number;
   netSubs: number;
   views: number;
 };
@@ -49,6 +53,8 @@ export function buildWeeklyHistory(daily: DailyAnalytics[], videos: OwnVideo[]):
       weekStart: new Date(start + weekIndex * weekMs).toISOString().slice(0, 10),
       cadencePerWeek: videoStats.count,
       shortsPct: videoStats.count > 0 ? videoStats.shorts / videoStats.count : 0,
+      shortsPerWeek: videoStats.shorts,
+      longFormPerWeek: videoStats.count - videoStats.shorts,
       netSubs: analytics.netSubs,
       views: analytics.views,
     });
@@ -56,28 +62,28 @@ export function buildWeeklyHistory(daily: DailyAnalytics[], videos: OwnVideo[]):
   return result;
 }
 
-export function recentAverages(history: WeeklyChannelState[], weeks = 4): { cadencePerWeek: number; shortsPct: number } {
+export type RecentAverages = { cadencePerWeek: number; shortsPct: number; shortsPerWeek: number; longFormPerWeek: number };
+
+export function recentAverages(history: WeeklyChannelState[], weeks = 4): RecentAverages {
   const recent = history.slice(-weeks);
-  if (recent.length === 0) return { cadencePerWeek: 1, shortsPct: 0.4 };
-  return {
-    cadencePerWeek: recent.reduce((sum, w) => sum + w.cadencePerWeek, 0) / recent.length,
-    shortsPct: recent.reduce((sum, w) => sum + w.shortsPct, 0) / recent.length,
-  };
+  if (recent.length === 0) return { cadencePerWeek: 1, shortsPct: 1, shortsPerWeek: 1, longFormPerWeek: 0 };
+  const avg = (key: keyof RecentAverages) => recent.reduce((sum, w) => sum + w[key], 0) / recent.length;
+  return { cadencePerWeek: avg("cadencePerWeek"), shortsPct: avg("shortsPct"), shortsPerWeek: avg("shortsPerWeek"), longFormPerWeek: avg("longFormPerWeek") };
 }
 
-// Real streak from real upload weeks — the most recent run of consecutive weeks with
-// at least one upload, and the longest such run anywhere in the available history.
+// Real Shorts streak from real upload weeks — the most recent run of consecutive weeks
+// with at least one Short, and the longest such run anywhere in the available history.
 // Not a separately tracked counter, so it can never drift from what actually happened.
 export function computeStreak(history: WeeklyChannelState[]): Streak {
   let currentWeeks = 0;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].cadencePerWeek > 0) currentWeeks++;
+    if (history[i].shortsPerWeek > 0) currentWeeks++;
     else break;
   }
   let longestWeeks = 0;
   let run = 0;
   for (const week of history) {
-    if (week.cadencePerWeek > 0) {
+    if (week.shortsPerWeek > 0) {
       run++;
       longestWeeks = Math.max(longestWeeks, run);
     } else {
@@ -87,23 +93,28 @@ export function computeStreak(history: WeeklyChannelState[]): Streak {
   return { currentWeeks, longestWeeks };
 }
 
-export type GrowthModel = { intercept: number; cadenceCoef: number; shortsPctCoef: number };
+// Weekly net subscribers ≈ intercept + shortsCoef × Shorts/week + longFormCoef × long-form/week.
+// Long-form stays in the model as a control (subscriber growth is channel-wide), but the
+// app only ever advises on Shorts.
+export type GrowthModel = { intercept: number; shortsCoef: number; longFormCoef: number };
 
 const MIN_TRAINING_WEEKS = 4;
 
 export function fitGrowthModel(history: WeeklyChannelState[]): GrowthModel {
   if (history.length < MIN_TRAINING_WEEKS) {
     const avg = history.length ? history.reduce((sum, w) => sum + w.netSubs, 0) / history.length : 0;
-    return { intercept: avg, cadenceCoef: 0, shortsPctCoef: 0 };
+    return { intercept: avg, shortsCoef: 0, longFormCoef: 0 };
   }
-  const features = history.map((w) => [1, w.cadencePerWeek, w.shortsPct]);
+  const features = history.map((w) => [1, w.shortsPerWeek, w.longFormPerWeek]);
   const targets = history.map((w) => w.netSubs);
-  const [intercept, cadenceCoef, shortsPctCoef] = fitOls(features, targets);
-  return { intercept, cadenceCoef, shortsPctCoef };
+  const [intercept, shortsCoef, longFormCoef] = fitOls(features, targets);
+  return { intercept, shortsCoef, longFormCoef };
 }
 
-export function predictWeek(model: GrowthModel, cadencePerWeek: number, shortsPct: number): number {
-  return model.intercept + model.cadenceCoef * cadencePerWeek + model.shortsPctCoef * shortsPct;
+// `shortsQuality` scales each Short's contribution by how the planned topic mix has
+// performed on this channel (1 = the channel's average Short; see simulatePaths).
+export function predictWeek(model: GrowthModel, shortsPerWeek: number, longFormPerWeek: number, shortsQuality = 1): number {
+  return model.intercept + model.shortsCoef * shortsPerWeek * shortsQuality + model.longFormCoef * longFormPerWeek;
 }
 
 export type RecalibrationResult = {
@@ -123,10 +134,10 @@ export function recalibrateWeek(predicted: number, actual: number): Recalibratio
     note = "Performance is tracking close to the model's expectation — no change to the plan.";
   } else if (deltaPct > 0) {
     note = "This week outperformed the model's expectation — the remaining weeks lean further into what's working.";
-    changes.push("Increase the higher-performing format's share slightly for the remaining weeks.");
+    changes.push("Make one more Short a week on the topic or hook that beat the plan.");
   } else {
-    note = "This week underperformed the model's expectation — the plan adjusts down for the remaining weeks.";
-    changes.push("Reduce the experimental format's share and lean back toward the historically stronger format.");
+    note = "This week underperformed the model's expectation — the plan adjusts for the remaining weeks.";
+    changes.push("Swap one test Short a week back to a proven topic until the next checkpoint.");
   }
   return { predicted, actual, deltaPct: Math.round(deltaPct * 10) / 10, adjustedPlan: { note, changes } };
 }
@@ -143,7 +154,7 @@ export function backtest(history: WeeklyChannelState[]): Backtest | null {
   for (let cutoff = MIN_TRAINING_WEEKS; cutoff < history.length; cutoff++) {
     const model = fitGrowthModel(history.slice(0, cutoff));
     const target = history[cutoff];
-    const predicted = predictWeek(model, target.cadencePerWeek, target.shortsPct);
+    const predicted = predictWeek(model, target.shortsPerWeek, target.longFormPerWeek);
     const denominator = Math.max(1, Math.abs(target.netSubs));
     errors.push((Math.abs(predicted - target.netSubs) / denominator) * 100);
   }
@@ -153,93 +164,104 @@ export function backtest(history: WeeklyChannelState[]): Backtest | null {
 }
 
 export type SimulatedPath = GrowthPath & {
-  cadencePerWeek: number;
-  shortsPct: number;
+  shortsPerWeek: number;
+  testsPerWeek: number; // Shorts testing a new topic or hook; the rest stay on proven topics
+  risk: OpportunityRow["risk"]; // how much the path rests on untested topics
   weeklyProjection: Array<{ week: number; subs: number }>;
 };
 
-export type ComparableChannel = {
-  title: string;
-  cadencePerWeek: number;
-  shortsPct: number;
-  subscriberCount: number;
-};
-
+// Every path is a Shorts strategy: how many Shorts a week, and how many of those test a
+// new topic or hook instead of staying on the channel's proven topics. Counts are
+// defined directly (not as rounded percentages) so the three paths stay distinct even
+// at 1–3 Shorts a week. Long-form output is held at its current level in the
+// projection — it isn't part of the advice.
 const PATH_DEFS: Array<{
   id: PathId;
   name: string;
   oneLiner: string;
-  cadenceMultiplier: number;
-  shortsPctTarget: number;
-  tradeOff: string;
+  risk: OpportunityRow["risk"];
+  shorts: (current: number) => number;
+  tests: (shorts: number) => number;
 }> = [
   {
-    id: "A",
-    name: "Double Down",
-    oneLiner: "Increase your historically strongest format substantially.",
-    cadenceMultiplier: 1.3,
-    shortsPctTarget: 0.2,
-    tradeOff:
-      "Grows on proven ground, but leaves less room to discover a new format that could outperform it.",
+    id: "A", name: "Double Down", oneLiner: "More Shorts on the topics and hooks that already work for you.", risk: "low",
+    shorts: (c) => Math.max(Math.round(c * 1.3), Math.round(c) + 1),
+    tests: (n) => Math.floor(n * 0.2),
   },
   {
-    id: "B",
-    name: "Balanced",
-    oneLiner: "Maintain your strongest format while introducing new ones gradually.",
-    cadenceMultiplier: 1.1,
-    shortsPctTarget: 0.4,
-    tradeOff: "Steadier, lower-risk growth, but slower to compound than fully committing to one direction.",
+    id: "B", name: "Balanced", oneLiner: "More Shorts, with one or two a week testing a new topic or hook.", risk: "medium",
+    shorts: (c) => Math.max(Math.round(c * 1.2), 1),
+    tests: (n) => (n >= 2 ? Math.max(1, Math.round(n / 3)) : 0),
   },
   {
-    id: "C",
-    name: "Experiment",
-    oneLiner: "Allocate more output to emerging or untested formats.",
-    cadenceMultiplier: 1.0,
-    shortsPctTarget: 0.6,
-    tradeOff:
-      "Higher upside if a new format lands, but lower historical certainty and a higher chance of underperforming the safer paths.",
+    id: "C", name: "Experiment", oneLiner: "Keep your pace; most Shorts test new topics and hooks.", risk: "high",
+    shorts: (c) => Math.max(Math.round(c), 1),
+    tests: (n) => n - Math.floor(n * 0.3),
   },
 ];
 
+// Trade-off text grounded in the channel's own proven-topic vs other Shorts numbers.
+function tradeOffFor(id: PathId, stats: ShortsStats): string {
+  const provenVsOther = describeShortsGap(stats.proven, stats.other, stats.basis);
+  const otherVsProven = describeShortsGap(stats.other, stats.proven, stats.basis);
+  switch (id) {
+    case "A":
+      return provenVsOther
+        ? `Your proven-topic Shorts earn ${provenVsOther} for your other Shorts. Reliable, but less room to find your next breakout topic.`
+        : "Stays on the topics that already work. Reliable, but less room to find your next breakout topic.";
+    case "B":
+      return "Keeps most Shorts on proven topics while testing new ones. Steadier, lower-risk growth, but slower to compound.";
+    case "C":
+      return stats.other.videos === 0
+        ? "You haven't posted Shorts outside your proven topics yet — no history to lean on. Higher upside if a new topic lands, lower certainty."
+        : otherVsProven
+          ? `Your Shorts outside proven topics earn ${otherVsProven} for proven ones. Higher upside if a new topic lands, lower certainty.`
+          : "Most Shorts test new topics. Higher upside if one lands, lower certainty.";
+  }
+}
+
+function weekMix(path: { shortsPerWeek: number; testsPerWeek: number }) {
+  return { proven: path.shortsPerWeek - path.testsPerWeek, test: path.testsPerWeek };
+}
+
 export function simulatePaths(
   currentSubs: number,
-  currentCadence: number,
+  recent: RecentAverages,
   model: GrowthModel,
-  comparables: ComparableChannel[]
+  shortsStats: ShortsStats
 ): SimulatedPath[] {
+  const topics = shortsStats.provenTopics.slice(0, 2).join(", ");
+
   return PATH_DEFS.map((def) => {
-    const cadencePerWeek = Math.max(1, Math.round(currentCadence * def.cadenceMultiplier) || 1);
-    const shortsPct = def.shortsPctTarget;
+    const shortsPerWeek = def.shorts(recent.shortsPerWeek);
+    const testsPerWeek = def.tests(shortsPerWeek);
+    const { proven, test } = weekMix({ shortsPerWeek, testsPerWeek });
+    // How this exact mix has performed on the channel, relative to its average Short.
+    const quality = (proven * shortsStats.provenRel + test * shortsStats.otherRel) / shortsPerWeek;
 
     const weeklyProjection: Array<{ week: number; subs: number }> = [];
     let runningSubs = currentSubs;
     for (let week = 1; week <= 12; week++) {
-      runningSubs += predictWeek(model, cadencePerWeek, shortsPct);
+      runningSubs += predictWeek(model, shortsPerWeek, recent.longFormPerWeek, quality);
       weeklyProjection.push({ week, subs: Math.round(runningSubs) });
     }
 
-    const relevantComparable = comparables.find((c) => Math.abs(c.shortsPct - shortsPct) < 0.15);
-    const tradeOff = relevantComparable
-      ? `${def.tradeOff} (${relevantComparable.title}, a comparable channel with a similar format mix, shows the same pattern.)`
-      : def.tradeOff;
-
-    const shorts = Math.round(cadencePerWeek * shortsPct);
-    const longForm = cadencePerWeek - shorts;
     const weekOnePlan = [
-      shorts > 0 ? `${shorts} Short${shorts === 1 ? "" : "s"}` : null,
-      longForm > 0 ? `${longForm} long-form video${longForm === 1 ? "" : "s"}` : null,
+      proven > 0 ? `${proven} Short${proven === 1 ? "" : "s"} on proven topics${topics ? ` (${topics})` : ""}` : null,
+      test > 0 ? `${test} Short${test === 1 ? "" : "s"} testing a new topic or hook` : null,
     ].filter((x): x is string => x !== null);
 
     return {
       id: def.id,
       name: def.name,
       oneLiner: def.oneLiner,
-      cadencePerWeek,
-      shortsPct,
+      shortsPerWeek,
+      testsPerWeek,
+      risk: def.risk,
       weekOnePlan,
       weeklyProjection,
       projectedWeek12Subs: weeklyProjection[11]?.subs ?? Math.round(currentSubs),
-      tradeOff,
+      tradeOff: tradeOffFor(def.id, shortsStats),
     };
   });
 }
@@ -247,16 +269,15 @@ export function simulatePaths(
 // Templated, not LLM-generated — deliberately, so fetching all 3 paths in parallel on
 // /dashboard/plan doesn't mean 3 OpenAI round-trips on the screen the demo lingers on.
 export function buildWeeklyActions(path: SimulatedPath): Array<{ week: number; action: string }> {
-  const shorts = Math.round(path.cadencePerWeek * path.shortsPct);
-  const longForm = path.cadencePerWeek - shorts;
+  const { proven, test } = weekMix(path);
   const parts = [
-    shorts > 0 ? `${shorts} Short${shorts === 1 ? "" : "s"}` : null,
-    longForm > 0 ? `${longForm} long-form video${longForm === 1 ? "" : "s"}` : null,
+    proven > 0 ? `${proven} on proven topics` : null,
+    test > 0 ? `${test} testing something new` : null,
   ].filter((x): x is string => x !== null);
 
   return Array.from({ length: 12 }, (_, i) => ({
     week: i + 1,
-    action: `Post ${parts.join(" + ")} this week (${path.name} strategy).`,
+    action: `Post ${path.shortsPerWeek} Short${path.shortsPerWeek === 1 ? "" : "s"} this week — ${parts.join(", ")} (${path.name} strategy).`,
   }));
 }
 
@@ -286,27 +307,11 @@ export function buildKpiScorecard(history: WeeklyChannelState[], currentSubs: nu
   ];
 }
 
-export function buildBenchmark(
-  myCadence: number,
-  myShortsPct: number,
-  comparables: ComparableChannel[]
-): BenchmarkRow[] {
-  return [
-    { channelLabel: "You", cadencePerWeek: Math.round(myCadence * 10) / 10, formatMixPct: Math.round(myShortsPct * 100), isMe: true },
-    ...comparables.map((c) => ({
-      channelLabel: c.title,
-      cadencePerWeek: Math.round(c.cadencePerWeek * 10) / 10,
-      formatMixPct: Math.round(c.shortsPct * 100),
-      isMe: false,
-    })),
-  ];
-}
-
 export function buildOpportunityMatrix(paths: SimulatedPath[], currentSubs: number): OpportunityRow[] {
   return paths.map((path) => ({
     pathId: path.id,
-    effort: path.cadencePerWeek >= 4 ? "high" : path.cadencePerWeek >= 2 ? "medium" : "low",
+    effort: path.shortsPerWeek >= 5 ? "high" : path.shortsPerWeek >= 3 ? "medium" : "low",
     projectedGrowth: Math.round(path.projectedWeek12Subs - currentSubs),
-    risk: path.shortsPct >= 0.5 ? "high" : path.shortsPct >= 0.3 ? "medium" : "low",
+    risk: path.risk,
   }));
 }

@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
       const trainingWindow = bundle.weeklyHistory.slice(0, historyIndex);
       const target = bundle.weeklyHistory[historyIndex];
       const weekModel = fitGrowthModel(trainingWindow);
-      predicted = Math.round(predictWeek(weekModel, target.cadencePerWeek, target.shortsPct));
+      predicted = Math.round(predictWeek(weekModel, target.shortsPerWeek, target.longFormPerWeek));
       actual = Math.round(target.netSubs);
       mocked = false;
     } else {
       // Scripted for the demo — this week hasn't happened yet for this creator.
       // Deterministic (not random-per-request) so repeated calls are stable within a demo.
-      const { cadencePerWeek, shortsPct } = recentAverages(bundle.weeklyHistory);
-      predicted = Math.round(predictWeek(bundle.model, cadencePerWeek, shortsPct));
+      const { shortsPerWeek, longFormPerWeek } = recentAverages(bundle.weeklyHistory);
+      predicted = Math.round(predictWeek(bundle.model, shortsPerWeek, longFormPerWeek));
       const variance = 1 + (((week * 37) % 21) - 10) / 100;
       actual = Math.round(predicted * variance);
       mocked = true;

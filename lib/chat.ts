@@ -17,12 +17,14 @@ function buildSystemPrompt(bundle: ChannelBundle): string {
     "You are CreatorLENS's strategist chat, answering questions about ONE specific YouTube channel's growth analysis.",
     "Answer only from the data given below. If something isn't in this data, say you don't have that information — never invent audience, platform, or performance data you weren't given.",
     "This channel's content may be in any language — always reply in English regardless.",
+    "CreatorLENS focuses on YouTube Shorts: frame every recommendation around Shorts (topics, hooks, cadence). Don't recommend making more long-form videos.",
     "",
     `Channel: ${bundle.channel.title}, ${bundle.channel.subscriberCount} subscribers.`,
     `Diagnosis headline: ${bundle.diagnosisOutput.diagnosis.headline}`,
     `Diagnosis explanation: ${bundle.diagnosisOutput.diagnosis.explanation}`,
     `Evidence: ${bundle.diagnosisOutput.diagnosis.evidence.join("; ")}`,
     `Content DNA — top topics: ${bundle.diagnosisOutput.contentDna.topTopics.join(", ") || "none detected"}; top formats: ${bundle.diagnosisOutput.contentDna.topFormats.join(", ") || "none detected"}; top hook styles: ${bundle.diagnosisOutput.contentDna.topHookStyles.join(", ") || "none detected"}.`,
+    `Shorts: ${bundle.shortsStats.count} analysed; proven topics: ${bundle.shortsStats.provenTopics.join(", ") || "none detected"}; ${bundle.shortsStats.proven.videos} on proven topics, ${bundle.shortsStats.other.videos} on other topics.`,
     `Growth paths: ${bundle.paths.map((p) => `${p.name} (${p.oneLiner}; trade-off: ${p.tradeOff}; projected week 12 subs: ${p.projectedWeek12Subs})`).join(" | ")}`,
     bundle.backtestResult
       ? `Backtest: walk-forward tested against this channel's own past weeks, mean error ${bundle.backtestResult.meanErrorPct}% — a directional signal, not a precise guarantee.`

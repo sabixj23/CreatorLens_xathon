@@ -12,13 +12,15 @@ export async function GET() {
 
   try {
     const bundle = await getChannelBundle(session.accessToken);
-    const { cadencePerWeek } = recentAverages(bundle.weeklyHistory);
+    const { shortsPerWeek } = recentAverages(bundle.weeklyHistory);
 
     const body: DiagnoseResponse = {
       channel: {
         title: bundle.channel.title,
         subscriberCount: bundle.channel.subscriberCount,
-        recentCadencePerWeek: Math.round(cadencePerWeek * 10) / 10,
+        recentShortsPerWeek: Math.round(shortsPerWeek * 10) / 10,
+        shortsAnalysed: bundle.shortsStats.count,
+        enoughShorts: bundle.shortsStats.enough,
       },
       diagnosis: bundle.diagnosisOutput.diagnosis,
       channelInOneSentence: bundle.diagnosisOutput.channelInOneSentence,

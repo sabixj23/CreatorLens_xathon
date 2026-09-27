@@ -2,6 +2,8 @@
 // so a shape drift between them is a typecheck failure, not a runtime surprise at merge time.
 
 export const UNLOCK_COOKIE_NAME = "clx_unlocked";
+// Fewer Shorts than this and the proven-topic comparison is too thin to lean on.
+export const MIN_SHORTS = 8;
 // Server-set, httpOnly counter for free chat replies. Like the unlock cookie, a demo
 // boundary rather than an entitlement system.
 export const CHAT_USED_COOKIE_NAME = "clx_chat_used";
@@ -63,7 +65,11 @@ export type DiagnoseResponse = {
   channel: {
     title: string;
     subscriberCount: number;
-    recentCadencePerWeek: number;
+    recentShortsPerWeek: number;
+    shortsAnalysed: number;
+    // false when the channel has too few Shorts for the topic comparison to mean much;
+    // the dashboard says so instead of presenting thin numbers as a strategy.
+    enoughShorts: boolean;
   };
   diagnosis: Diagnosis;
   channelInOneSentence: ChannelInOneSentence;
@@ -82,13 +88,6 @@ export type KpiTile = {
   trend: "up" | "down" | "flat";
 };
 
-export type BenchmarkRow = {
-  channelLabel: string;
-  cadencePerWeek: number;
-  formatMixPct: number;
-  isMe: boolean;
-};
-
 export type OpportunityRow = {
   pathId: PathId;
   effort: "low" | "medium" | "high";
@@ -104,7 +103,6 @@ export type PlanResponse = {
   weeklyActions: Array<{ week: number; action: string }>; // templated, not LLM-generated
   crossPlatform: { mocked: true; note: string; instagram: unknown; tiktok: unknown };
   kpiScorecard: KpiTile[];
-  benchmark: BenchmarkRow[];
   opportunityMatrix: OpportunityRow[];
 };
 

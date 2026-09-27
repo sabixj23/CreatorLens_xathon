@@ -9,7 +9,7 @@ const level = z.enum(["high", "medium", "low"]);
 const pathId = z.enum(["A", "B", "C"]);
 const count = z.number().finite().nonnegative();
 const diagnosisSchema: z.ZodType<DiagnoseResponse> = z.object({
-  channel: z.object({ title: z.string(), subscriberCount: count, recentCadencePerWeek: count }),
+  channel: z.object({ title: z.string(), subscriberCount: count, recentShortsPerWeek: count, shortsAnalysed: count, enoughShorts: z.boolean() }),
   diagnosis: z.object({ headline: z.string(), explanation: z.string(), evidence: z.array(z.string()) }),
   channelInOneSentence: z.object({ then: z.string(), now: z.string() }),
   contentDna: z.object({ topTopics: z.array(z.string()), topFormats: z.array(z.string()), topHookStyles: z.array(z.string()) }),
@@ -23,7 +23,6 @@ const planSchema: z.ZodType<PlanResponse> = z.object({
   weeklyActions: z.array(z.object({ week: z.number().int().min(1).max(12), action: z.string() })).length(12).refine(rows => new Set(rows.map(r => r.week)).size === 12),
   crossPlatform: z.object({ mocked: z.literal(true), note: z.string(), instagram: z.unknown(), tiktok: z.unknown() }),
   kpiScorecard: z.array(z.object({ label: z.string(), value: z.number().finite(), trend: z.enum(["up", "down", "flat"]) })),
-  benchmark: z.array(z.object({ channelLabel: z.string(), cadencePerWeek: count, formatMixPct: z.number().min(0).max(100), isMe: z.boolean() })),
   opportunityMatrix: z.array(z.object({ pathId, effort: level, projectedGrowth: z.number().finite(), risk: level })),
 });
 const recalibrationSchema: z.ZodType<RecalibrationResponse> = z.object({

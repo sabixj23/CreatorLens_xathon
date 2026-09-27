@@ -1,6 +1,11 @@
 const DATA_API = "https://www.googleapis.com/youtube/v3";
 const ANALYTICS_API = "https://youtubeanalytics.googleapis.com/v2";
 
+// YouTube has allowed Shorts up to 3 minutes since October 2024. The Data API has no
+// "is Short" flag, so duration is the classifier; a rare 2–3 minute long-form upload
+// will be counted as a Short.
+export const SHORTS_MAX_SECONDS = 180;
+
 export type OwnChannel = {
   id: string;
   title: string;
@@ -15,7 +20,7 @@ export type OwnVideo = {
   viewCount: number;
   likeCount: number;
   durationSeconds: number;
-  isShort: boolean; // duration <= 60s
+  isShort: boolean; // duration <= 180s — see SHORTS_MAX_SECONDS
 };
 
 export type DailyAnalytics = {
@@ -116,9 +121,50 @@ export async function getMyRecentVideos(
       viewCount: Number(item.statistics.viewCount ?? 0),
       likeCount: Number(item.statistics.likeCount ?? 0),
       durationSeconds,
-      isShort: durationSeconds <= 60,
+      isShort: durationSeconds <= SHORTS_MAX_SECONDS,
     };
   });
+}
+
+export type VideoAnalytics = {
+  videoId: string;
+  views: number;
+  subscribersGained: number;
+  averageViewDurationSec: number;
+};
+
+// Per-video subscriber conversion and watch time for the OWNED channel, over the same
+// window as the day-level history. This report type requires a sort and maxResults, so
+// it covers the channel's most-viewed videos rather than every upload.
+export async function getMyVideoAnalytics(accessToken: string, monthsBack = 18): Promise<VideoAnalytics[]> {
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - monthsBack);
+  const format = (d: Date) => d.toISOString().slice(0, 10);
+
+  const url = new URL(`${ANALYTICS_API}/reports`);
+  url.searchParams.set("ids", "channel==MINE");
+  url.searchParams.set("startDate", format(start));
+  url.searchParams.set("endDate", format(end));
+  url.searchParams.set("metrics", "views,subscribersGained,averageViewDuration");
+  url.searchParams.set("dimensions", "video");
+  url.searchParams.set("sort", "-views");
+  url.searchParams.set("maxResults", "200");
+
+  const data = await youtubeFetch<{
+    columnHeaders: Array<{ name: string }>;
+    rows?: (string | number)[][];
+  }>(url.toString(), accessToken);
+
+  const columns = data.columnHeaders.map((header) => header.name);
+  const index = (name: string) => columns.indexOf(name);
+
+  return (data.rows ?? []).map((row) => ({
+    videoId: String(row[index("video")]),
+    views: Number(row[index("views")] ?? 0),
+    subscribersGained: Number(row[index("subscribersGained")] ?? 0),
+    averageViewDurationSec: Number(row[index("averageViewDuration")] ?? 0),
+  }));
 }
 
 // Real day-level history for the OWNED channel only — this is not available for any

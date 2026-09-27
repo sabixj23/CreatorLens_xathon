@@ -7,7 +7,7 @@ import { FREE_CHAT_MESSAGES, type ChatRequest } from "@/lib/types";
 import { useReport } from "./report-provider";
 import { ConnectLink, Icon } from "./ui";
 
-const STARTERS = ["Why did my growth slow down?", "Which format should I make more of?", "Give me 3 ideas based on my Content DNA"];
+const STARTERS = ["Why did my growth slow down?", "Which topics should my next Shorts cover?", "Give me 3 Shorts ideas with hooks"];
 const MAX_HISTORY = 6; // matches MAX_HISTORY_TURNS in lib/chat.ts
 
 type Message = ChatRequest["history"][number];

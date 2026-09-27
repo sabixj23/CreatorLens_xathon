@@ -26,7 +26,7 @@ export function StreakBadge({ streak }: { streak: DiagnoseResponse["streak"] }) 
     setPermission(result);
     if (result === "granted") {
       new Notification("🔥 Keep your streak alive!", {
-        body: `You're on a ${streak.currentWeeks}-week streak. Post this week to keep it going.`,
+        body: `You're on a ${streak.currentWeeks}-week Shorts streak. Post a Short this week to keep it going.`,
       });
     }
   }
@@ -35,8 +35,8 @@ export function StreakBadge({ streak }: { streak: DiagnoseResponse["streak"] }) 
     <div className="streak-badge">
       <span className="streak-flame" aria-hidden="true">🔥</span>
       <div className="streak-copy">
-        <strong>{streak.currentWeeks}-week streak</strong>
-        <span>Longest streak: {streak.longestWeeks} weeks · from your real upload history</span>
+        <strong>{streak.currentWeeks}-week Shorts streak</strong>
+        <span>Longest streak: {streak.longestWeeks} weeks · weeks with at least one Short, from your real upload history</span>
       </div>
       {permission === "unsupported" ? null : permission === "granted" ? (
         <span className="streak-reminder-on"><Icon name="check" size={14} />Reminders on</span>

@@ -45,7 +45,7 @@ export function PathChart({ diagnosis, plans, selected, onSelect, showTable = tr
           <circle cx={x(0)} cy={y(initial)} r="4" fill="var(--text)" />
         </svg>
       </div>
-      <figcaption id={`${id}-caption`}><span className="scenario-dot" />Scenario, not a forecast. Assumes the historical relationship between cadence, format mix, and growth continues. Later weeks are more uncertain.</figcaption>
+      <figcaption id={`${id}-caption`}><span className="scenario-dot" />Scenario, not a forecast. Assumes the historical relationship between Shorts cadence, topic mix, and growth continues. Later weeks are more uncertain.</figcaption>
     </figure>
     {showTable && <details className="projection-details"><summary>View the weekly numbers<span aria-hidden="true">+</span></summary><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly subscriber scenarios"><table><caption className="sr-only">Projected subscribers by strategy, all 12 weeks</caption><thead><tr><th scope="col">Week</th>{diagnosis.paths.map(p => <th scope="col" key={p.id}>{p.name}</th>)}</tr></thead><tbody>{Array.from({ length: 12 }, (_, i) => <tr key={i}><th scope="row">{i + 1}</th>{diagnosis.paths.map(p => <td key={p.id}>{number(plans[p.id].weeklyProjection.find(w => w.week === i + 1)?.subs ?? 0)}</td>)}</tr>)}</tbody></table></div></details>}
   </div>;

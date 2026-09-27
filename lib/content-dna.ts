@@ -11,7 +11,7 @@ const STOPWORDS = new Set([
   "this", "that", "my", "your", "i", "you", "we", "how", "what", "why", "vs", "part", "new",
 ]);
 
-function extractKeywords(title: string): string[] {
+export function extractKeywords(title: string): string[] {
   // \w only matches ASCII. \p{L}/\p{N} (Unicode letters/numbers) alone still fragment
   // scripts like Tamil that use combining vowel signs (Unicode category Mark, \p{M}) —
   // e.g. "சாப்பிடலாம்" would otherwise be split apart at every combining mark. Including
@@ -23,7 +23,7 @@ function extractKeywords(title: string): string[] {
     .filter((word) => word.length > 1 && !STOPWORDS.has(word));
 }
 
-function topTopics(videos: OwnVideo[]): string[] {
+export function topTopics(videos: OwnVideo[]): string[] {
   const weighted = new Map<string, number>();
   for (const video of videos) {
     for (const keyword of extractKeywords(video.title)) {

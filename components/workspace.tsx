@@ -8,12 +8,11 @@ import { ChatPanel } from "./chat-panel";
 import { useReport } from "./report-provider";
 import { ConnectLink, Icon, MockLabel } from "./ui";
 
-// Overview / Diagnosis / Content DNA live on /dashboard; Strategy / Simulator / Ideas
+// Overview / Diagnosis live on /dashboard; Strategy / Simulator / Ideas
 // live on /dashboard/plan — two pages instead of one long scroll.
 const nav = [
   { label: "Overview", section: "overview", path: "/dashboard", icon: "grid" as const },
   { label: "Diagnosis", section: "diagnosis", path: "/dashboard", icon: "diagnosis" as const },
-  { label: "Content DNA", section: "content-dna", path: "/dashboard", icon: "dna" as const },
   { label: "Strategy", section: "strategy", path: "/dashboard/plan", icon: "paths" as const },
   { label: "Simulator", section: "simulator", path: "/dashboard/plan", icon: "chart" as const },
   { label: "Ideas", section: "ideas", path: "/dashboard/plan", icon: "bulb" as const },
@@ -49,7 +48,7 @@ export function Workspace({ children }: { children: ReactNode }) {
       </div>
     </div>;
   }
-  // Only the current page's own nav items — Overview/Diagnosis/Content DNA on
+  // Only the current page's own nav items — Overview/Diagnosis on
   // /dashboard, Strategy/Simulator/Ideas on /dashboard/plan, not both at once.
   const pageNav = nav.filter(item => item.path === pathname);
   return <div className="workspace"><aside className="sidebar"><p className="eyebrow sidebar-label">YOUR WORKSPACE</p><nav aria-label="Report sections">{pageNav.map(item => <Link key={item.section} href={href(item.path, item.section)} className={active === item.section ? "active" : ""} aria-current={active === item.section ? "location" : undefined}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><span className="small-orbit" aria-hidden="true">◎</span><h3>Strategy is a loop.</h3><p>Understand. Choose.<br />Create. Recalibrate.</p><span className="sidebar-note-line" /></div><div className="sidebar-bottom"><Icon name="youtube" size={16} /><span>YouTube intelligence</span></div></aside><div className="report-content">
