@@ -9,14 +9,18 @@ import { useReport } from "./report-provider";
 import { ConnectLink, Icon, MockLabel } from "./ui";
 
 // Overview / Diagnosis / Content DNA live on /dashboard; Strategy / Simulator / Ideas
-// live on /dashboard/plan — two pages instead of one long scroll.
+// live on /dashboard/plan — two pages instead of one long scroll. `showOn` (which
+// sidebar this item appears in) is kept separate from `path`/`section` (where it links
+// to) specifically for the "Channel Overview" back-link below: it's shown only on
+// /dashboard/plan but points back to /dashboard, so the two can't be the same field.
 const nav = [
-  { label: "Overview", section: "overview", path: "/dashboard", icon: "grid" as const },
-  { label: "Diagnosis", section: "diagnosis", path: "/dashboard", icon: "diagnosis" as const },
-  { label: "Content DNA", section: "content-dna", path: "/dashboard", icon: "dna" as const },
-  { label: "Strategy", section: "strategy", path: "/dashboard/plan", icon: "paths" as const },
-  { label: "Simulator", section: "simulator", path: "/dashboard/plan", icon: "chart" as const },
-  { label: "Ideas", section: "ideas", path: "/dashboard/plan", icon: "bulb" as const },
+  { label: "Overview", section: "overview", path: "/dashboard", icon: "grid" as const, showOn: "/dashboard" },
+  { label: "Diagnosis", section: "diagnosis", path: "/dashboard", icon: "diagnosis" as const, showOn: "/dashboard" },
+  { label: "Content DNA", section: "content-dna", path: "/dashboard", icon: "dna" as const, showOn: "/dashboard" },
+  { label: "Channel Overview", section: "overview", path: "/dashboard", icon: "grid" as const, showOn: "/dashboard/plan" },
+  { label: "Strategy", section: "strategy", path: "/dashboard/plan", icon: "paths" as const, showOn: "/dashboard/plan" },
+  { label: "Simulator", section: "simulator", path: "/dashboard/plan", icon: "chart" as const, showOn: "/dashboard/plan" },
+  { label: "Ideas", section: "ideas", path: "/dashboard/plan", icon: "bulb" as const, showOn: "/dashboard/plan" },
 ];
 export function StagedLoader() {
   const [stage, setStage] = useState(0);
@@ -50,9 +54,10 @@ export function Workspace({ children }: { children: ReactNode }) {
     </div>;
   }
   // Only the current page's own nav items — Overview/Diagnosis/Content DNA on
-  // /dashboard, Strategy/Simulator/Ideas on /dashboard/plan, not both at once.
-  const pageNav = nav.filter(item => item.path === pathname);
-  return <div className="workspace"><aside className="sidebar"><p className="eyebrow sidebar-label">YOUR WORKSPACE</p><nav aria-label="Report sections">{pageNav.map(item => <Link key={item.section} href={href(item.path, item.section)} className={active === item.section ? "active" : ""} aria-current={active === item.section ? "location" : undefined}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><span className="small-orbit" aria-hidden="true">◎</span><h3>Strategy is a loop.</h3><p>Understand. Choose.<br />Create. Recalibrate.</p><span className="sidebar-note-line" /></div><div className="sidebar-bottom"><Icon name="youtube" size={16} /><span>YouTube intelligence</span></div></aside><div className="report-content">
+  // /dashboard, Strategy/Simulator/Ideas (+ a Channel Overview back-link) on
+  // /dashboard/plan, not both at once.
+  const pageNav = nav.filter(item => item.showOn === pathname);
+  return <div className="workspace"><aside className="sidebar"><p className="eyebrow sidebar-label">YOUR WORKSPACE</p><nav aria-label="Report sections">{pageNav.map(item => <Link key={item.label} href={href(item.path, item.section)} className={item.path === pathname && active === item.section ? "active" : ""} aria-current={item.path === pathname && active === item.section ? "location" : undefined}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><span className="small-orbit" aria-hidden="true">◎</span><h3>Strategy is a loop.</h3><p>Understand. Choose.<br />Create. Recalibrate.</p><span className="sidebar-note-line" /></div><div className="sidebar-bottom"><Icon name="youtube" size={16} /><span>YouTube intelligence</span></div></aside><div className="report-content">
     {state.status === "loading" ? <StagedLoader /> : <>
       <div className="report-breadcrumb"><span>WORKSPACE <span aria-hidden="true">/</span> {pathname.endsWith("/plan") ? "YOUR GROWTH PLAN" : "CHANNEL OVERVIEW"}</span>{state.report.source === "demo" ? <MockLabel note="All channel figures in this report are illustrative." /> : <span className="live-label"><span className="status-dot" />Connected channel</span>}</div>
       {state.report.source === "demo" && <div className="demo-notice"><p>{state.report.notice || "You're exploring an illustrative channel. All metrics, ideas, and scenarios below are demo data."}</p>{state.report.notice ? <button onClick={retry} type="button">Retry live report ↗</button> : <Link href="/dashboard?connect=1">Use your channel ↗</Link>}</div>}
