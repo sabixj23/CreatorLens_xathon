@@ -25,9 +25,11 @@ function buildSystemPrompt(bundle: ChannelBundle): string {
     `Evidence: ${bundle.diagnosisOutput.diagnosis.evidence.join("; ")}`,
     `Content DNA — top topics: ${bundle.diagnosisOutput.contentDna.topTopics.join(", ") || "none detected"}; top formats: ${bundle.diagnosisOutput.contentDna.topFormats.join(", ") || "none detected"}; top hook styles: ${bundle.diagnosisOutput.contentDna.topHookStyles.join(", ") || "none detected"}.`,
     `Shorts: ${bundle.shortsStats.count} analysed; proven topics: ${bundle.shortsStats.provenTopics.join(", ") || "none detected"}; ${bundle.shortsStats.proven.videos} on proven topics, ${bundle.shortsStats.other.videos} on other topics.`,
-    `Growth paths: ${bundle.paths.map((p) => `${p.name} (${p.oneLiner}; trade-off: ${p.tradeOff}; projected week 12 subs: ${p.projectedWeek12Subs})`).join(" | ")}`,
+    `Growth paths: ${bundle.paths.map((p) => `${p.name} (${p.thesis} Actions: ${p.actions.join("; ")}. Trade-off: ${p.tradeOff} Main risk: ${p.mainRisk} Two-week test: ${p.experiment.decisionRule.text} Projected week-12 subs: ${p.projectedWeek12Subs}${p.exploratory ? "; exploratory — no supporting evidence" : ""})`).join(" | ")}`,
+    `Measured findings (statuses are final): ${bundle.analysis.hypotheses.map((h) => `${h.claim} [${h.status}, evidence strength ${h.strength}]`).join(" | ")}`,
+    bundle.analysis.drivers ? `Last 8 complete weeks vs the 8 before: ${bundle.analysis.drivers.statement}` : "Limited history: fewer than 16 complete weeks.",
     bundle.backtestResult
-      ? `Backtest: walk-forward tested against this channel's own past weeks, mean error ${bundle.backtestResult.meanErrorPct}% — a directional signal, not a precise guarantee.`
+      ? `Backtest: walk-forward tested against this channel's own past weeks, average error ${bundle.backtestResult.maeSubsPerWeek} subscribers/week over ${bundle.backtestResult.weeksEvaluated} weeks (a simple last-4-weeks median: ${bundle.backtestResult.baselineMaeSubsPerWeek}/week) — a directional signal, not a promise for the 12-week paths.`
       : "Backtest: not yet available — do not state or imply any accuracy number.",
   ].join("\n");
 }

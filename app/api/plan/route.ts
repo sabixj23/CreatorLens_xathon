@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   try {
     const bundle = await getChannelBundle(session.accessToken);
-    const path = bundle.paths.find((p) => p.id === pathId);
+    const path = bundle.plans.find((p) => p.id === pathId);
     if (!path) return NextResponse.json({ error: "Path not found." }, { status: 404 });
 
     const body: PlanResponse = {
@@ -34,11 +34,12 @@ export async function GET(request: Request) {
         tiktok: null,
       },
       kpiScorecard: buildKpiScorecard(bundle.weeklyHistory, bundle.channel.subscriberCount),
-      opportunityMatrix: buildOpportunityMatrix(bundle.paths, bundle.channel.subscriberCount),
+      opportunityMatrix: buildOpportunityMatrix(bundle.plans, bundle.channel.subscriberCount),
     };
 
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    console.error("[api/plan]", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "The plan could not be generated." },
       { status: 502 }

@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { FormatStats, ShortsStats } from "./format-stats";
-import { describeFormatStats, describeShortsStats } from "./format-stats";
-import type { ChannelInOneSentence, ContentDna, Diagnosis, Idea } from "./types";
+import type { ShortsStats } from "./format-stats";
+import { describeShortsStats } from "./format-stats";
+import type { ChannelAnalysis, ChannelInOneSentence, ContentDna, Diagnosis, Evidence, Hypothesis, Idea } from "./types";
 import type { OwnChannel } from "./youtube";
-import type { WeeklyChannelState } from "./simulation";
 
 // The model routinely drifts on casing ("High") and length, even when told the rules —
 // normalise and clamp rather than rejecting an otherwise-good diagnosis outright.
@@ -37,7 +36,6 @@ const ideaSchema = z.object({
 const diagnosisOutputSchema = z.object({
   headline: clampedString(140),
   explanation: clampedString(600),
-  evidence: z.array(clampedString(300)).min(1).transform((items) => items.slice(0, 6)),
   channelInOneSentence: z.object({
     then: clampedString(200),
     now: clampedString(200),
@@ -52,41 +50,75 @@ export type DiagnosisOutput = {
   ideas: Idea[];
 };
 
-function summariseWeeklyHistory(history: WeeklyChannelState[]): string {
-  const recent = history.slice(-8);
-  const earlier = history.slice(0, 8);
-  const describe = (weeks: WeeklyChannelState[]) => {
-    if (weeks.length === 0) return "no data";
-    const avg = (key: "shortsPerWeek" | "longFormPerWeek" | "netSubs") => weeks.reduce((sum, w) => sum + w[key], 0) / weeks.length;
-    return `avg ${avg("shortsPerWeek").toFixed(1)} Shorts/wk, ${avg("longFormPerWeek").toFixed(1)} long-form/wk, avg net subs/wk ${avg("netSubs").toFixed(0)}`;
-  };
-  return `Earliest available weeks: ${describe(earlier)}. Most recent 8 weeks: ${describe(recent)}.`;
+const fmt = (n: number | null) => (n === null ? "n/a" : Number.isInteger(n) ? String(n) : String(n));
+
+export function describeEvidence(e: Evidence): string {
+  return `${e.metric}: ${fmt(e.before)} → ${fmt(e.after)} ${e.unit}`;
+}
+
+function describeHypothesis(h: Hypothesis): string {
+  const evidence = [...h.evidenceFor, ...h.evidenceAgainst].map(describeEvidence).join("; ");
+  return `- [${h.status}, evidence strength ${h.strength}] ${h.claim}${evidence ? ` Evidence: ${evidence}.` : ""}${h.note ? ` Note: ${h.note}` : ""}`;
+}
+
+// The top finding the diagnosis narrates: first supported, else first mixed hypothesis.
+export function topFinding(analysis: ChannelAnalysis): Hypothesis | null {
+  return analysis.hypotheses.find((h) => h.status === "supported") ?? analysis.hypotheses.find((h) => h.status === "mixed") ?? null;
+}
+
+// Deterministic evidence lines shown on the diagnosis card — never taken from the LLM.
+export function diagnosisEvidence(analysis: ChannelAnalysis): string[] {
+  const top = topFinding(analysis);
+  const items = top ? top.evidenceFor : [];
+  if (items.length) return items.slice(0, 4).map(describeEvidence);
+  return (analysis.drivers?.changes ?? []).slice(0, 3).map((c) => `${c.label}: ${fmt(c.before)} → ${fmt(c.after)} ${c.unit}`);
+}
+
+function deterministicNarrative(analysis: ChannelAnalysis): { headline: string; explanation: string } {
+  const top = topFinding(analysis);
+  if (analysis.limitedHistory) return { headline: "Not enough history yet for a confident diagnosis.", explanation: "CreatorLENS needs 16 complete weeks to compare your recent Shorts with the period before. Until then, treat the paths as starting points." };
+  if (!top) return { headline: "No single cause clearly explains the slowdown.", explanation: analysis.drivers?.statement ?? "The data doesn't point to one reason — test one change at a time." };
+  return { headline: top.claim, explanation: analysis.drivers?.statement ?? top.claim };
+}
+
+// Every number in the LLM's headline/explanation must already appear in the prompt it was
+// given — otherwise the narrative is replaced with the deterministic one.
+function numbersAreGrounded(text: string, prompt: string): boolean {
+  const numbers = text.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  const normalise = (n: string) => n.replace(/,/g, "");
+  const available = new Set((prompt.match(/\d+(?:[.,]\d+)?/g) ?? []).map(normalise));
+  return numbers.every((n) => available.has(normalise(n)));
 }
 
 export async function generateDiagnosis(input: {
   channel: OwnChannel;
-  weeklyHistory: WeeklyChannelState[];
   contentDna: ContentDna;
-  formatStats: FormatStats;
+  analysis: ChannelAnalysis;
   shortsStats: ShortsStats;
 }): Promise<DiagnosisOutput> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
+  const { analysis } = input;
+  const top = topFinding(analysis);
 
   const prompt = [
-    `Channel: ${input.channel.title}, ${input.channel.subscriberCount} subscribers.`,
-    summariseWeeklyHistory(input.weeklyHistory),
-    `Content DNA computed from this channel's own video history — top topics: ${input.contentDna.topTopics.join(", ") || "none detected"}; top formats by average views: ${input.contentDna.topFormats.join(", ") || "none detected"}; top hook styles by view-weighted frequency: ${input.contentDna.topHookStyles.join(", ") || "none detected"}.`,
-    `Shorts vs long-form on this channel (its own videos): ${describeFormatStats(input.formatStats)}.`,
+    `Channel: ${input.channel.title}, ${input.channel.subscriberCount} subscribers. Data through ${analysis.dataThrough} (${analysis.completeWeeks} complete weeks).`,
+    analysis.drivers ? `Last 8 complete weeks (${analysis.drivers.windows.after}) vs the 8 before (${analysis.drivers.windows.before}): ${analysis.drivers.statement}` : "Limited history: fewer than 16 complete weeks, so no before/after comparison.",
+    ...(analysis.drivers ? analysis.drivers.changes.map((c) => `- ${c.label}: ${fmt(c.before)} → ${fmt(c.after)} ${c.unit}`) : []),
+    "Measured hypotheses (statuses are final — do not change them):",
+    ...analysis.hypotheses.map(describeHypothesis),
+    `Top finding to narrate: ${top ? top.claim : "none is supported — say plainly that no single cause is clearly supported"}.`,
+    `Content DNA — top topics: ${input.contentDna.topTopics.join(", ") || "none detected"}; top hook styles: ${input.contentDna.topHookStyles.join(", ") || "none detected"}.`,
     `This channel's Shorts: ${describeShortsStats(input.shortsStats)}`,
     "",
-    "CreatorLENS is a YouTube Shorts growth strategist. Use the whole-channel numbers as context, but every recommendation must be about Shorts — never advise making more long-form videos.",
-    "Find ONE sharp, non-obvious reason this channel's growth has stalled, framed around its Shorts strategy (topics, hooks, cadence) and grounded in the numbers above — not generic advice like 'post more consistently'. Cite specific numbers in the evidence array.",
-    "Then write a short 'channel in one sentence' before/after contrast: what pattern historically drove growth (`then`), and how the recent period has drifted from it (`now`). Both must be grounded in the data given, not invented.",
-    "Then suggest 2-3 next Shorts ideas (vertical, under 3 minutes). Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage, we don't have grounds for that precision), and 2-3 stylistic hook-line variants (bold, relatable, curiosity) — each hook is the line spoken or shown in the first 1-2 seconds of the Short.",
-    "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English regardless of the source language.",
-    "Return JSON with keys: headline, explanation, evidence (array of strings), channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
-    "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, each evidence item 300 (max 6 items), then/now 200 each, idea title 120, hook line 140.",
+    "CreatorLENS is a YouTube Shorts growth strategist. You NARRATE the measured findings above; you do not analyse the data yourself.",
+    "Write a headline (under 14 words) and a 2-sentence explanation of the top finding. Use ONLY numbers that appear above — never compute, round or invent new figures. Don't claim causes the statuses don't support; 'mixed' means signals disagree.",
+    "Every recommendation must be about Shorts — never advise making more long-form videos.",
+    "Then write a short 'channel in one sentence' before/after contrast (`then` = what drove growth before, `now` = how the recent period drifted), each under 15 words, grounded in the data above.",
+    "Then suggest 2-3 next Shorts ideas (vertical, under 3 minutes). Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage), and 2-3 hook-line variants (bold, relatable, curiosity) — each hook is the line spoken or shown in the first 1-2 seconds of the Short.",
+    "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English.",
+    "Return JSON with keys: headline, explanation, channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
+    "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, then/now 200 each, idea title 120, hook line 140.",
   ].join("\n");
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -125,11 +157,17 @@ export async function generateDiagnosis(input: {
     throw new Error(`Diagnosis response did not match the expected shape: ${result.error.message}`);
   }
 
+  // The LLM narrates; the evidence lines are always the deterministic ones. If the
+  // narrative introduces a number that wasn't in the prompt, fall back to deterministic text.
+  const grounded = numbersAreGrounded(`${result.data.headline} ${result.data.explanation}`, prompt);
+  const narrative = grounded ? { headline: result.data.headline, explanation: result.data.explanation } : deterministicNarrative(analysis);
+  if (!grounded) console.warn("[diagnosis] LLM narrative contained ungrounded numbers; using deterministic text.");
+
   return {
     diagnosis: {
-      headline: result.data.headline,
-      explanation: result.data.explanation,
-      evidence: result.data.evidence,
+      headline: narrative.headline,
+      explanation: narrative.explanation,
+      evidence: diagnosisEvidence(analysis),
     },
     channelInOneSentence: result.data.channelInOneSentence,
     contentDna: input.contentDna,

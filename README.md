@@ -53,6 +53,17 @@ The UI labels KPI values with the API-provided labels. Include the metric period
 
 CreatorLENS focuses on YouTube Shorts. The whole channel is analysed (subscriber growth is channel-wide), but every path, idea and recommendation is about Shorts. Shorts are videos up to 180 seconds (`SHORTS_MAX_SECONDS` in `lib/youtube.ts`). The growth model fits weekly net subscribers against Shorts per week, with long-form per week as a control. Each path is a Shorts cadence plus how many Shorts test a new topic or hook versus staying on "proven topics": title keywords whose Shorts beat the channel's average Short on subscribers per 1k views (from the Analytics per-video report, falling back to average views). Channels with fewer than `MIN_SHORTS` Shorts get a notice on the dashboard. There is no comparison against other channels — the YouTube Analytics API only returns data for channels the signed-in user owns.
 
+### Analysis and "did it work?"
+
+All numbers come from deterministic code in `lib/analysis/` — the diagnosis LLM only narrates them (any number in its text that wasn't in its input is rejected and replaced with deterministic wording).
+
+- **Data** (`weeks.ts`): complete Monday–Sunday UTC weeks only (the partial current week is dropped), shared boundaries across reports. Shorts vs long-form views and subscribers come from YouTube's own `creatorContentType` split (`day,creatorContentType` report); per-video type from the top-videos report. Missing metrics stay `null`, never 0.
+- **Drivers** (`drivers.ts`): last 8 vs previous 8 complete weeks; sums before ratios; symmetric reach-vs-conversion split of the change in weekly net subscribers (arithmetic, not cause). Needs 16 complete weeks, otherwise a limited-history report.
+- **Change detection, formats, outliers, hypotheses**: fixed rules with counter-checks; each hypothesis is `supported` / `mixed` / `not_supported` / `insufficient_data` with an evidence strength (not a probability).
+- **Strategies** (`strategies.ts`, `experiments.ts`): Double Down / Balanced / Experiment, all Shorts-only (cadence, topics, hooks). Each card cites the hypotheses behind it (or is labelled exploratory) and carries a two-week test with a decision rule from the creator's own weekly variation (median ± MAD).
+- **Projections** (`simulation.ts`): recent median weekly net subs + a conservative per-Short delta (half of the median attributed subs per Short), clamped to the channel's observed range, with a band that widens with √weeks. The regression is kept only as a walk-forward backtest, reported as mean absolute error in subscribers/week next to a trailing four-week-median baseline.
+- **Closing the loop** (`evaluation.ts`, `/api/plan-start`, `/api/recalibration`): "Start this plan" freezes an 8-week baseline in a signed, httpOnly cookie (`clx_plan`, this browser only). Checkpoints at weeks 2, 4, 8 and 12 show adherence, before/after evidence, the reach/conversion split, a "carry on as before" range, and the two-week test. Verdicts: "Too early" before week 4; "Working" / "Not working" only outside the baseline's normal weekly swing; otherwise "Mixed / no clear change". **Look-back mode** treats the plan as started 4, 8 or 12 weeks ago so every number is real history.
+
 Checkpoint requests do not include a selected path in the current contract. They compare the server's saved baseline. Exploring another path only changes the frontend scenario and weekly actions; it does not silently change the checkpoint baseline.
 
 ## Verification

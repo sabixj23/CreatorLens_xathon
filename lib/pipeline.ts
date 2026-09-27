@@ -1,54 +1,78 @@
+import { analyseChannel, perShortSubscribers, recentProvenShare } from "./analysis";
+import type { PrimaryMetric } from "./analysis/experiments";
+import { decisionThresholds, primaryMetric } from "./analysis/experiments";
+import { buildStrategyCards } from "./analysis/strategies";
+import type { ChannelSnapshot } from "./analysis/weeks";
+import { buildSnapshot } from "./analysis/weeks";
 import { buildContentDna } from "./content-dna";
 import type { DiagnosisOutput } from "./diagnosis";
 import { generateDiagnosis } from "./diagnosis";
 import type { FormatStats, ShortsStats } from "./format-stats";
 import { buildFormatStats, buildShortsStats } from "./format-stats";
 import { getOrCompute } from "./session-cache";
-import type { GrowthModel, SimulatedPath, WeeklyChannelState } from "./simulation";
-import { backtest, buildWeeklyHistory, computeStreak, fitGrowthModel, recentAverages, simulatePaths } from "./simulation";
-import type { Backtest, ContentDna, Streak } from "./types";
-import type { OwnChannel, VideoAnalytics } from "./youtube";
-import { getMyAnalyticsHistory, getMyChannel, getMyRecentVideos, getMyVideoAnalytics } from "./youtube";
+import type { PathPlan, WeeklyChannelState } from "./simulation";
+import { backtest, computeStreak, planPaths, projectionInputs, statesFromWeeks } from "./simulation";
+import type { Backtest, ChannelAnalysis, ContentDna, GrowthPath, Streak } from "./types";
+import type { DailyContentTypeAnalytics, OwnChannel, VideoAnalytics } from "./youtube";
+import { getMyAnalyticsHistory, getMyChannel, getMyContentTypeHistory, getMyRecentVideos, getMyVideoAnalytics } from "./youtube";
 
 export type ChannelBundle = {
   channel: OwnChannel;
+  snapshot: ChannelSnapshot;
   weeklyHistory: WeeklyChannelState[];
   contentDna: ContentDna;
   formatStats: FormatStats;
   shortsStats: ShortsStats;
-  model: GrowthModel;
-  paths: SimulatedPath[];
+  analysis: ChannelAnalysis;
+  plans: PathPlan[];
+  paths: GrowthPath[];
+  metric: PrimaryMetric;
   backtestResult: Backtest | null;
   diagnosisOutput: DiagnosisOutput;
   streak: Streak;
 };
 
 // Everything an authenticated request needs, computed once per session and reused by
-// /api/diagnose, /api/plan, and /api/recalibration — see lib/session-cache.ts for why.
+// /api/diagnose, /api/plan, /api/plan-start, /api/recalibration and /api/chat.
 export async function getChannelBundle(accessToken: string): Promise<ChannelBundle> {
   return getOrCompute(accessToken, async () => {
     const channel = await getMyChannel(accessToken);
-    const [videos, daily, videoAnalytics] = await Promise.all([
+    const [{ videos, complete }, daily, contentType, videoAnalytics] = await Promise.all([
       getMyRecentVideos(accessToken, channel.uploadsPlaylistId),
       getMyAnalyticsHistory(accessToken),
-      // Optional enrichment (subscriber conversion + watch time per format). Without it
-      // the format comparison falls back to average views, so a failure isn't fatal.
+      // Shorts vs long-form from YouTube's own creatorContentType split. If it fails,
+      // content-type fields become null — never a guess.
+      getMyContentTypeHistory(accessToken).catch((error): DailyContentTypeAnalytics[] | null => {
+        console.error("[pipeline] content-type report unavailable:", error);
+        return null;
+      }),
       getMyVideoAnalytics(accessToken).catch((error): VideoAnalytics[] => {
         console.error("[pipeline] per-video analytics unavailable:", error);
         return [];
       }),
     ]);
 
-    const weeklyHistory = buildWeeklyHistory(daily, videos);
-    const contentDna = buildContentDna(videos);
-    const formatStats = buildFormatStats(videos, videoAnalytics);
-    const shortsStats = buildShortsStats(videos, videoAnalytics);
-    const model = fitGrowthModel(weeklyHistory);
-    const paths = simulatePaths(channel.subscriberCount, recentAverages(weeklyHistory), model, shortsStats);
-    const backtestResult = backtest(weeklyHistory);
-    const streak = computeStreak(weeklyHistory);
-    const diagnosisOutput = await generateDiagnosis({ channel, weeklyHistory, contentDna, formatStats, shortsStats });
+    const snapshot = buildSnapshot({ daily, contentType, videos, videosComplete: complete, videoAnalytics });
+    // Downstream helpers read `isShort`; use the best classification available.
+    const classified = snapshot.videos.map((v) => ({ ...v, isShort: v.isShortResolved }));
+    const weeklyHistory = statesFromWeeks(snapshot.weeks);
+    const contentDna = buildContentDna(classified);
+    const formatStats = buildFormatStats(classified, videoAnalytics);
+    const shortsStats = buildShortsStats(classified, videoAnalytics);
+    const analysis = analyseChannel(snapshot, shortsStats);
 
-    return { channel, weeklyHistory, contentDna, formatStats, shortsStats, model, paths, backtestResult, diagnosisOutput, streak };
+    const backtestResult = backtest(weeklyHistory);
+    const errorPerWeek = backtestResult ? Math.min(backtestResult.maeSubsPerWeek, backtestResult.baselineMaeSubsPerWeek) : null;
+    const inputs = projectionInputs(snapshot.weeks, perShortSubscribers(snapshot), recentProvenShare(snapshot, shortsStats.provenTopics), errorPerWeek);
+    const plans = planPaths(channel.subscriberCount, inputs, shortsStats);
+
+    const metric = primaryMetric(snapshot.contentTypeAvailable);
+    const thresholds = decisionThresholds(snapshot.weeks.slice(-8), metric);
+    const paths = buildStrategyCards(plans, analysis.hypotheses, shortsStats, contentDna.topHookStyles[0] ?? null, metric, thresholds);
+
+    const streak = computeStreak(weeklyHistory);
+    const diagnosisOutput = await generateDiagnosis({ channel, contentDna, analysis, shortsStats });
+
+    return { channel, snapshot, weeklyHistory, contentDna, formatStats, shortsStats, analysis, plans, paths, metric, backtestResult, diagnosisOutput, streak };
   });
 }

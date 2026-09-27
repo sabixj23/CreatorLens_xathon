@@ -9,7 +9,7 @@ export function PathChart({ diagnosis, plans, selected, onSelect, showTable = tr
 }) {
   const id = useId();
   const initial = diagnosis.channel.subscriberCount;
-  const values = [initial, ...Object.values(plans).flatMap(p => p.weeklyProjection.map(w => w.subs))];
+  const values = [initial, ...Object.values(plans).flatMap(p => p.weeklyProjection.map(w => w.subs)), ...plans[selected].weeklyProjection.flatMap(w => [w.low, w.high])];
   const range = Math.max(...values) - Math.min(...values) || Math.max(initial * 0.05, 100);
   const min = Math.max(0, Math.min(...values) - range * 0.13);
   const max = Math.max(...values) + range * 0.14;
@@ -30,6 +30,13 @@ export function PathChart({ diagnosis, plans, selected, onSelect, showTable = tr
           {[0, 2, 4, 8, 12].map(week => <text key={week} x={x(week)} y="260" textAnchor="middle" className="chart-tick">{week === 0 ? "Now" : `W${week}`}</text>)}
           <line x1={x(2)} x2={x(2)} y1="27" y2="236" className="chart-grid" strokeDasharray="3 5" />
           <text x={x(2) + 12} y="19" className="chart-small">LONGER HORIZON · GREATER UNCERTAINTY</text>
+          {(() => {
+            // Band for the selected path: widens with the horizon (backtest error × √weeks).
+            const rows = [...plans[selected].weeklyProjection].sort((a, b) => a.week - b.week);
+            const upper = [`M${x(0)},${y(initial)}`, ...rows.map(r => `L${x(r.week)},${y(r.high)}`)];
+            const lower = [...rows].reverse().map(r => `L${x(r.week)},${y(r.low)}`);
+            return <path d={`${upper.join(" ")} ${lower.join(" ")} L${x(0)},${y(initial)} Z`} fill={styles[selected].color} opacity=".12" className="path-band" />;
+          })()}
           <g className="chart-series">{diagnosis.paths.map(path => {
             const points = [{ week: 0, subs: initial }, ...plans[path.id].weeklyProjection].sort((a, b) => a.week - b.week);
             const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.week)},${y(p.subs)}`).join(" ");
@@ -45,7 +52,7 @@ export function PathChart({ diagnosis, plans, selected, onSelect, showTable = tr
           <circle cx={x(0)} cy={y(initial)} r="4" fill="var(--text)" />
         </svg>
       </div>
-      <figcaption id={`${id}-caption`}><span className="scenario-dot" />Scenario, not a forecast. Assumes the historical relationship between Shorts cadence, topic mix, and growth continues. Later weeks are more uncertain.</figcaption>
+      <figcaption id={`${id}-caption`}><span className="scenario-dot" />Scenario, not a forecast. Shaded band = likely range for the selected path, widening with the horizon. Assumes the historical relationship between Shorts cadence, topic mix, and growth continues. Later weeks are more uncertain.</figcaption>
     </figure>
     {showTable && <details className="projection-details"><summary>View the weekly numbers<span aria-hidden="true">+</span></summary><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly subscriber scenarios"><table><caption className="sr-only">Projected subscribers by strategy, all 12 weeks</caption><thead><tr><th scope="col">Week</th>{diagnosis.paths.map(p => <th scope="col" key={p.id}>{p.name}</th>)}</tr></thead><tbody>{Array.from({ length: 12 }, (_, i) => <tr key={i}><th scope="row">{i + 1}</th>{diagnosis.paths.map(p => <td key={p.id}>{number(plans[p.id].weeklyProjection.find(w => w.week === i + 1)?.subs ?? 0)}</td>)}</tr>)}</tbody></table></div></details>}
   </div>;

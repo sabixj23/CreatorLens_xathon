@@ -26,21 +26,16 @@ export async function GET() {
       channelInOneSentence: bundle.diagnosisOutput.channelInOneSentence,
       contentDna: bundle.diagnosisOutput.contentDna,
       ideas: bundle.diagnosisOutput.ideas,
-      paths: bundle.paths.map((path) => ({
-        id: path.id,
-        name: path.name,
-        oneLiner: path.oneLiner,
-        weekOnePlan: path.weekOnePlan,
-        projectedWeek12Subs: path.projectedWeek12Subs,
-        tradeOff: path.tradeOff,
-      })),
+      paths: bundle.paths,
       // null until real — never a placeholder 0, that reads as a claim of perfect accuracy.
       backtest: bundle.backtestResult,
       streak: bundle.streak,
+      analysis: bundle.analysis,
     };
 
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    console.error("[api/diagnose]", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Diagnosis could not be completed." },
       { status: 502 }

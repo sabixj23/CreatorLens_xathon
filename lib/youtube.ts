@@ -76,11 +76,14 @@ export async function getMyChannel(accessToken: string): Promise<OwnChannel> {
 // Data API v3 only gives current lifetime totals per video — no historical time series.
 // This "view count by video age" view (using publishedAt) is the only growth signal
 // available for channels other than the signed-in user's own.
+// `complete` is false when the cap was hit before the end of the uploads playlist — the
+// weekly builder then drops weeks older than the oldest fetched upload, rather than
+// reading them as "0 uploads". Duplicate IDs (the playlist can repeat) are removed.
 export async function getMyRecentVideos(
   accessToken: string,
   uploadsPlaylistId: string,
-  max = 50
-): Promise<OwnVideo[]> {
+  max = 250
+): Promise<{ videos: OwnVideo[]; complete: boolean }> {
   const videoIds: string[] = [];
   let pageToken: string | undefined;
 
@@ -101,18 +104,24 @@ export async function getMyRecentVideos(
     if (!pageToken) break;
   }
 
-  if (videoIds.length === 0) return [];
+  const complete = !pageToken;
+  const unique = [...new Set(videoIds)];
+  if (unique.length === 0) return { videos: [], complete };
 
-  const details = await youtubeFetch<{
-    items: Array<{
-      id: string;
-      snippet: { title: string; publishedAt: string };
-      statistics: { viewCount?: string; likeCount?: string };
-      contentDetails: { duration: string };
-    }>;
-  }>(`${DATA_API}/videos?part=snippet,statistics,contentDetails&id=${videoIds.join(",")}`, accessToken);
+  // videos.list accepts at most 50 ids per call.
+  type VideoItem = {
+    id: string;
+    snippet: { title: string; publishedAt: string };
+    statistics: { viewCount?: string; likeCount?: string };
+    contentDetails: { duration: string };
+  };
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 50) chunks.push(unique.slice(i, i + 50));
+  const pages = await Promise.all(
+    chunks.map((ids) => youtubeFetch<{ items: VideoItem[] }>(`${DATA_API}/videos?part=snippet,statistics,contentDetails&id=${ids.join(",")}`, accessToken))
+  );
 
-  return details.items.map((item) => {
+  const videos = pages.flatMap((page) => page.items).map((item) => {
     const durationSeconds = parseIsoDuration(item.contentDetails.duration);
     return {
       id: item.id,
@@ -124,81 +133,112 @@ export async function getMyRecentVideos(
       isShort: durationSeconds <= SHORTS_MAX_SECONDS,
     };
   });
+  return { videos, complete };
 }
+
+// ─── YouTube Analytics API (owned channel only) ──────────────────────────────
+
+// Every Analytics query uses the same window, so week boundaries line up across reports.
+export const ANALYTICS_MONTHS_BACK = 18;
+
+function analyticsWindow(monthsBack = ANALYTICS_MONTHS_BACK) {
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - monthsBack);
+  const format = (d: Date) => d.toISOString().slice(0, 10);
+  return { startDate: format(start), endDate: format(end) };
+}
+
+type ReportRow = Record<string, string | number | null>;
+
+// Rows keyed by column NAME (from columnHeaders), never by assumed array position.
+// A requested metric that's missing from the response comes back as null, not 0.
+async function analyticsReport(accessToken: string, params: Record<string, string>): Promise<ReportRow[]> {
+  const url = new URL(`${ANALYTICS_API}/reports`);
+  url.searchParams.set("ids", "channel==MINE");
+  const { startDate, endDate } = analyticsWindow();
+  url.searchParams.set("startDate", startDate);
+  url.searchParams.set("endDate", endDate);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+
+  const data = await youtubeFetch<{ columnHeaders: Array<{ name: string }>; rows?: (string | number)[][] }>(url.toString(), accessToken);
+  const names = data.columnHeaders.map((header) => header.name);
+  return (data.rows ?? []).map((row) => Object.fromEntries(names.map((name, i) => [name, row[i] ?? null])));
+}
+
+const num = (value: string | number | null | undefined): number | null => (value === null || value === undefined || value === "" ? null : Number(value));
 
 export type VideoAnalytics = {
   videoId: string;
   views: number;
   subscribersGained: number;
   averageViewDurationSec: number;
+  // YouTube's own classification (SHORTS, VIDEO_ON_DEMAND, LIVE_STREAM, …) when the
+  // report could be split by creatorContentType; null otherwise.
+  contentType: string | null;
 };
 
-// Per-video subscriber conversion and watch time for the OWNED channel, over the same
-// window as the day-level history. This report type requires a sort and maxResults, so
-// it covers the channel's most-viewed videos rather than every upload.
-export async function getMyVideoAnalytics(accessToken: string, monthsBack = 18): Promise<VideoAnalytics[]> {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - monthsBack);
-  const format = (d: Date) => d.toISOString().slice(0, 10);
-
-  const url = new URL(`${ANALYTICS_API}/reports`);
-  url.searchParams.set("ids", "channel==MINE");
-  url.searchParams.set("startDate", format(start));
-  url.searchParams.set("endDate", format(end));
-  url.searchParams.set("metrics", "views,subscribersGained,averageViewDuration");
-  url.searchParams.set("dimensions", "video");
-  url.searchParams.set("sort", "-views");
-  url.searchParams.set("maxResults", "200");
-
-  const data = await youtubeFetch<{
-    columnHeaders: Array<{ name: string }>;
-    rows?: (string | number)[][];
-  }>(url.toString(), accessToken);
-
-  const columns = data.columnHeaders.map((header) => header.name);
-  const index = (name: string) => columns.indexOf(name);
-
-  return (data.rows ?? []).map((row) => ({
-    videoId: String(row[index("video")]),
-    views: Number(row[index("views")] ?? 0),
-    subscribersGained: Number(row[index("subscribersGained")] ?? 0),
-    averageViewDurationSec: Number(row[index("averageViewDuration")] ?? 0),
+// Per-video subscriber gains and watch time for the OWNED channel, over the shared
+// window. The top-videos report requires a sort and maxResults, so it covers the
+// channel's 200 most-viewed videos. creatorContentType is an optional dimension of
+// this report; if YouTube rejects it, the report is re-requested without it.
+export async function getMyVideoAnalytics(accessToken: string): Promise<VideoAnalytics[]> {
+  const base = { metrics: "views,subscribersGained,averageViewDuration", sort: "-views", maxResults: "200" };
+  let rows: ReportRow[];
+  let typed = true;
+  try {
+    rows = await analyticsReport(accessToken, { ...base, dimensions: "video,creatorContentType" });
+  } catch (error) {
+    console.error("[youtube] per-video report with creatorContentType failed; retrying without:", error);
+    rows = await analyticsReport(accessToken, { ...base, dimensions: "video" });
+    typed = false;
+  }
+  return rows.map((row) => ({
+    videoId: String(row.video),
+    views: num(row.views) ?? 0,
+    subscribersGained: num(row.subscribersGained) ?? 0,
+    averageViewDurationSec: num(row.averageViewDuration) ?? 0,
+    contentType: typed && row.creatorContentType ? String(row.creatorContentType) : null,
   }));
 }
 
 // Real day-level history for the OWNED channel only — this is not available for any
-// channel the signed-in user doesn't have Analytics access to.
-export async function getMyAnalyticsHistory(
-  accessToken: string,
-  monthsBack = 18
-): Promise<DailyAnalytics[]> {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - monthsBack);
-  const format = (d: Date) => d.toISOString().slice(0, 10);
+// channel the signed-in user doesn't have Analytics access to. A day with no row had no
+// activity (a documented absent-zero), which the weekly builder treats as 0.
+export async function getMyAnalyticsHistory(accessToken: string): Promise<DailyAnalytics[]> {
+  const rows = await analyticsReport(accessToken, {
+    metrics: "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+    dimensions: "day",
+    sort: "day",
+  });
+  return rows.map((row) => ({
+    date: String(row.day),
+    views: num(row.views) ?? 0,
+    estimatedMinutesWatched: num(row.estimatedMinutesWatched) ?? 0,
+    subscribersGained: num(row.subscribersGained) ?? 0,
+    subscribersLost: num(row.subscribersLost) ?? 0,
+  }));
+}
 
-  const url = new URL(`${ANALYTICS_API}/reports`);
-  url.searchParams.set("ids", "channel==MINE");
-  url.searchParams.set("startDate", format(start));
-  url.searchParams.set("endDate", format(end));
-  url.searchParams.set("metrics", "views,estimatedMinutesWatched,subscribersGained,subscribersLost");
-  url.searchParams.set("dimensions", "day");
-  url.searchParams.set("sort", "day");
+export type DailyContentTypeAnalytics = DailyAnalytics & { contentType: string };
 
-  const data = await youtubeFetch<{
-    columnHeaders: Array<{ name: string }>;
-    rows?: (string | number)[][];
-  }>(url.toString(), accessToken);
-
-  const columns = data.columnHeaders.map((header) => header.name);
-  const index = (name: string) => columns.indexOf(name);
-
-  return (data.rows ?? []).map((row) => ({
-    date: String(row[index("day")]),
-    views: Number(row[index("views")] ?? 0),
-    estimatedMinutesWatched: Number(row[index("estimatedMinutesWatched")] ?? 0),
-    subscribersGained: Number(row[index("subscribersGained")] ?? 0),
-    subscribersLost: Number(row[index("subscribersLost")] ?? 0),
+// The same daily metrics split by YouTube's own content type (SHORTS, VIDEO_ON_DEMAND,
+// LIVE_STREAM, STORY, UNSPECIFIED). Documented for day + creatorContentType with views,
+// estimatedMinutesWatched, subscribersGained and subscribersLost, from 2019-01-01.
+// Subscriptions that happen away from a video's watch page aren't attributed to a
+// content type, so these rows won't sum exactly to the channel totals.
+export async function getMyContentTypeHistory(accessToken: string): Promise<DailyContentTypeAnalytics[]> {
+  const rows = await analyticsReport(accessToken, {
+    metrics: "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+    dimensions: "day,creatorContentType",
+    sort: "day",
+  });
+  return rows.map((row) => ({
+    date: String(row.day),
+    contentType: String(row.creatorContentType ?? "UNSPECIFIED"),
+    views: num(row.views) ?? 0,
+    estimatedMinutesWatched: num(row.estimatedMinutesWatched) ?? 0,
+    subscribersGained: num(row.subscribersGained) ?? 0,
+    subscribersLost: num(row.subscribersLost) ?? 0,
   }));
 }

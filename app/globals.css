@@ -878,3 +878,103 @@ h1 em, .economics-section h2 em, .closing-cta h2 em { background: linear-gradien
   .hero-copy .button { width: 100%; }
   .hero-bottom { display: none; }
 }
+
+/* ─── Deterministic analysis (dashboard) ─────────────────────────────────── */
+.analysis-panel { margin-top: 18px; padding: 26px 28px; }
+.analysis-head h3 { font-size: 20px; color: var(--beige); margin: 10px 0 6px; font-weight: 500; line-height: 1.35; }
+.analysis-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; margin: 22px 0 18px; }
+.driver-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.driver-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--text-muted); }
+.driver-list strong { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.driver-list em { font-family: var(--sans); font-style: normal; text-align: right; white-space: nowrap; min-width: 64px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.driver-list em.down { color: var(--bad); }
+.driver-list em.up { color: var(--good); }
+.decomposition .eyebrow { margin-bottom: 12px; }
+.decomp-row { display: grid; grid-template-columns: 170px 1fr 80px; gap: 12px; align-items: center; margin: 10px 0; font-size: 13px; color: var(--text-muted); }
+.decomp-row strong { text-align: right; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.decomp-track { position: relative; height: 12px; border-radius: 999px; background: var(--navy-700); }
+.decomp-track::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--navy-600); }
+.decomp-track i { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.decomp-track i.pos { background: var(--good); }
+.decomp-track i.neg { background: var(--bad); }
+.hypotheses { margin: 20px 0 14px; }
+.hypotheses > .eyebrow { margin-bottom: 10px; }
+.hypothesis { border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; background: rgba(255, 255, 255, .012); }
+.hypothesis summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 130px 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; }
+.hypothesis summary::-webkit-details-marker { display: none; }
+.hypothesis[open] { background: rgba(255, 255, 255, .025); }
+.hypothesis > :not(summary) { margin: 0 16px 14px; }
+.hypothesis-claim { font-size: 14px; color: var(--text); }
+.strength { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.status-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 600; letter-spacing: .02em; border: 1px solid currentColor; white-space: nowrap; }
+.status-supported { color: var(--good); }
+.status-mixed { color: var(--caution); }
+.status-not_supported { color: var(--bad); }
+.status-insufficient_data { color: var(--text-dim); }
+.hypothesis.status-supported, .hypothesis.status-mixed, .hypothesis.status-not_supported, .hypothesis.status-insufficient_data { color: inherit; }
+.evidence-table { margin-top: 6px; }
+.evidence-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.evidence-table th, .evidence-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 400; }
+.evidence-table thead th { color: var(--text-dim); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.evidence-table tbody th { color: var(--text-muted); }
+.evidence-table td { color: var(--text); font-variant-numeric: tabular-nums; }
+.evidence-table td.unit { color: var(--text-dim); font-size: 12px; }
+.evidence-table .fine-print { margin: 8px 10px 0; }
+.shorts-notice-inline { margin: 12px 0; padding: 10px 14px; border-radius: 8px; border: 1px solid #615336; background: #bc94440f; color: var(--caution); font-size: 13px; }
+
+/* ─── Strategy cards: evidence + two-week test ───────────────────────────── */
+.evidence-badge { display: inline-block; margin: 10px 0 2px; padding: 4px 10px; border-radius: 999px; font-size: 12px; color: var(--good); border: 1px solid rgba(143, 209, 158, .35); background: rgba(143, 209, 158, .06); }
+.evidence-badge.is-exploratory { color: var(--caution); border-color: rgba(215, 189, 135, .35); background: rgba(215, 189, 135, .06); }
+.path-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 26px 28px; margin-top: 18px; }
+.path-actions { list-style: none; margin: 12px 0 16px; padding: 0; }
+.path-actions li { display: flex; gap: 9px; align-items: flex-start; margin: 8px 0; font-size: 14px; color: var(--text); }
+.path-actions svg { color: var(--path-b); margin-top: 3px; }
+.path-facts { margin: 0; display: grid; gap: 10px; }
+.path-facts dt { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.path-facts dd { margin: 3px 0 0; font-size: 14px; color: var(--text-muted); }
+.two-week-test { border-left: 1px solid var(--line); padding-left: 28px; }
+.two-week-test h4 { margin: 10px 0; font-size: 16px; font-weight: 500; color: var(--beige); line-height: 1.4; }
+.two-week-test ul { margin: 0 0 12px; padding-left: 18px; color: var(--text-muted); font-size: 13px; }
+.two-week-test p { font-size: 13px; color: var(--text-muted); margin: 8px 0; }
+.two-week-test b { color: var(--text); font-weight: 500; }
+
+/* ─── Closing the loop ──────────────────────────────────────────────────── */
+.plan-start { display: grid; gap: 18px; padding: 28px; }
+.plan-start h3 { font-size: 22px; color: var(--beige); margin: 10px 0 8px; font-weight: 500; }
+.plan-start p { font-size: 14px; }
+.mode-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border: 0; margin: 0; padding: 0; }
+.mode-choice label { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.mode-choice label.is-selected { border-color: var(--path-b); background: rgba(139, 194, 182, .06); }
+.mode-choice input { margin-top: 4px; accent-color: var(--path-b); }
+.mode-choice strong { display: block; font-size: 14px; color: var(--text); font-weight: 500; }
+.mode-choice small { display: block; font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+.lookback-choice { display: flex; gap: 8px; flex-wrap: wrap; }
+.lookback-choice button { border: 1px solid var(--line); background: transparent; color: var(--text-muted); border-radius: 999px; padding: 7px 14px; font-size: 13px; }
+.lookback-choice button.active { color: var(--beige); border-color: var(--beige); }
+.plan-start-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.plan-summary { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.plan-summary p { font-size: 13px; margin-top: 4px; }
+.plan-summary strong { color: var(--text); font-weight: 500; }
+.plan-summary .text-link { background: none; border: 0; white-space: nowrap; }
+.plan-mismatch { padding: 8px 24px 0; }
+.verdict-reason { font-size: 14px; color: var(--text); margin-top: 10px; max-width: 760px; line-height: 1.6; }
+.checkpoint-title .status-badge { font-size: 15px; padding: 6px 14px; }
+.adherence { margin: 18px 0 6px; padding: 10px 14px; border-radius: 8px; font-size: 13px; background: var(--navy-700); color: var(--text-muted); }
+.adherence b { color: var(--text); font-weight: 500; }
+.adherence-not_followed { border: 1px solid rgba(226, 137, 127, .4); }
+.adherence-partly { border: 1px solid rgba(215, 189, 135, .4); }
+.window-note { margin: 12px 0 4px; }
+.checkpoint-extras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin: 22px 0 8px; }
+.checkpoint-extras p { font-size: 13px; color: var(--text-muted); margin-top: 10px; line-height: 1.6; }
+.checkpoint-extras b { color: var(--text); font-weight: 500; }
+.checkpoint-extras .decomp-row { grid-template-columns: 1fr; gap: 4px; }
+.checkpoint-extras .decomp-row strong { text-align: left; }
+.outcome-keep { color: var(--good) !important; }
+.outcome-drop { color: var(--bad) !important; }
+.outcome-inconclusive { color: var(--caution) !important; }
+@media (max-width: 900px) {
+  .analysis-grid, .path-detail, .checkpoint-extras, .mode-choice { grid-template-columns: 1fr; }
+  .two-week-test { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 20px; }
+  .hypothesis summary { grid-template-columns: 1fr; gap: 6px; }
+}
+.decomp-note { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-top: 4px; }
