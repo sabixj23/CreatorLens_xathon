@@ -70,10 +70,9 @@ export const demoPlans = Object.fromEntries(demoDiagnosis.paths.map(path => [pat
   opportunityMatrix: demoDiagnosis.paths.map((p, i) => ({ pathId: p.id, effort: "medium", risk: (["low", "medium", "high"] as const)[i], projectedGrowth: p.projectedWeek12Subs - demoDiagnosis.channel.subscriberCount })),
 }])) as Record<PathId, PlanResponse>;
 
-// A deliberately escalating story across the five checkpoints CreatorLENS Pro
-// actually offers (week-timeline.tsx uses weeks 2, 3, 4, 8, 12): a small early
-// signal, a specific finding, a real mid-course pivot, then the compounding
-// payoff of having made that pivot. Each note cites the number behind it —
+// A deliberately escalating story across the four checkpoints CreatorLENS Pro
+// actually offers (weeks 2, 4, 8, 12): a small early signal, a specific finding
+// strong enough to pivot on, then the compounding payoff of having made that pivot. Each note cites the number behind it —
 // same evidence-first standard as the diagnosis — so it reads as a model
 // genuinely updating itself, not a static, cosmetic percentage.
 const checkpoints: Record<number, { actual: number; note: string; changes: string[] }> = {
@@ -82,14 +81,9 @@ const checkpoints: Record<number, { actual: number; note: string; changes: strin
     note: "Your proven dinner Shorts held viewers 18% longer than the model assumed this week — a small but real early signal.",
     changes: ["Keep 3 dinner Shorts + 1 test Short for week 3.", "Open every dinner Short on the finished dish."],
   },
-  3: {
-    actual: 132400,
-    note: "This week's test Short — a 'rescue a bad dinner' hook — earned 4.1 subscribers per 1k views, nearly double your average Short's 2.3. One data point — worth testing again before committing.",
-    changes: ["Use the rescue hook on week 4's test Short too.", "Hold the 3 dinner Shorts steady as the comparison point."],
-  },
   4: {
     actual: 134900,
-    note: "Two rescue-hook Shorts in a row confirm the pattern: it's outperforming the original Balanced mix by a wide margin. The plan has been reweighted for the remaining 8 weeks — not just this one.",
+    note: "This week's test Short — a 'rescue a bad dinner' hook — earned 4.1 subscribers per 1k views, nearly double your average Short's 2.3 — strong enough on its own to reweight the plan for the remaining 8 weeks, not just this one.",
     changes: ["Shift weeks 5–12 to 2 rescue-hook Shorts + 2 dinner Shorts per week.", "Move the test slot to a new topic now that the hook question is answered."],
   },
   8: {

@@ -129,3 +129,8 @@ export type ChatRequest = {
 
 // freeRemaining is null when the unlock cookie is set (unlimited).
 export type ChatResponse = { reply: string; freeRemaining: number | null };
+
+// POST /api/streak-email — sends a real email (via Resend) to the signed-in user's own
+// account email, built from their real streak. Requires an authenticated session; there
+// is no separate unlock gate on this one.
+export type StreakEmailResponse = { sent: true; to: string };
