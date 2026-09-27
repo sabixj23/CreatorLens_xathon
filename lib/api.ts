@@ -44,7 +44,7 @@ const experiment = z.object({
 });
 const diagnosisSchema: z.ZodType<DiagnoseResponse> = z.object({
   channel: z.object({ title: z.string(), subscriberCount: count, recentShortsPerWeek: count, shortsAnalysed: count, enoughShorts: z.boolean() }),
-  diagnosis: z.object({ headline: z.string(), explanation: z.string(), evidence: z.array(z.string()) }),
+  diagnosis: z.object({ headline: z.string(), explanation: z.array(z.string()), evidence: z.array(z.string()) }),
   channelInOneSentence: z.object({ then: z.string(), now: z.string() }),
   contentDna: z.object({ topTopics: z.array(z.string()), topFormats: z.array(z.string()), topHookStyles: z.array(z.string()) }),
   ideas: z.array(z.object({ title: z.string(), trendRelevance: level, audienceFit: level, hooks: z.array(z.object({ style: z.enum(["bold", "relatable", "curiosity"]), line: z.string() })) })),

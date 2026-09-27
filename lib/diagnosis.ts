@@ -35,7 +35,8 @@ const ideaSchema = z.object({
 
 const diagnosisOutputSchema = z.object({
   headline: clampedString(140),
-  explanation: clampedString(600),
+  // Point-form: 2-4 short observations, not a paragraph.
+  explanation: z.array(clampedString(200)).min(2).transform((items) => items.slice(0, 4)),
   channelInOneSentence: z.object({
     then: clampedString(200),
     now: clampedString(200),
@@ -74,11 +75,12 @@ export function diagnosisEvidence(analysis: ChannelAnalysis): string[] {
   return (analysis.drivers?.changes ?? []).slice(0, 3).map((c) => `${c.label}: ${fmt(c.before)} → ${fmt(c.after)} ${c.unit}`);
 }
 
-function deterministicNarrative(analysis: ChannelAnalysis): { headline: string; explanation: string } {
+function deterministicNarrative(analysis: ChannelAnalysis): { headline: string; explanation: string[] } {
   const top = topFinding(analysis);
-  if (analysis.limitedHistory) return { headline: "Not enough history yet for a confident diagnosis.", explanation: "CreatorLENS needs 16 complete weeks to compare your recent Shorts with the period before. Until then, treat the paths as starting points." };
-  if (!top) return { headline: "No single cause clearly explains the slowdown.", explanation: analysis.drivers?.statement ?? "The data doesn't point to one reason — test one change at a time." };
-  return { headline: top.claim, explanation: analysis.drivers?.statement ?? top.claim };
+  if (analysis.limitedHistory) return { headline: "Not enough history yet for a confident diagnosis.", explanation: [`CreatorLENS compares your last 8 complete weeks with the 8 before; this channel has ${analysis.completeWeeks}.`, "Until then, treat the paths as starting points."] };
+  const statement = analysis.drivers?.statement;
+  if (!top) return { headline: "No single cause clearly explains the slowdown.", explanation: [statement ?? "The data doesn't point to one reason.", "Test one change at a time and let the checkpoints show what works."] };
+  return { headline: top.claim, explanation: [statement ?? top.claim, ...(top.note ? [top.note] : ["See the evidence below for the measured numbers."])] };
 }
 
 // Every number in the LLM's headline/explanation must already appear in the prompt it was
@@ -112,13 +114,13 @@ export async function generateDiagnosis(input: {
     `This channel's Shorts: ${describeShortsStats(input.shortsStats)}`,
     "",
     "CreatorLENS is a YouTube Shorts growth strategist. You NARRATE the measured findings above; you do not analyse the data yourself.",
-    "Write a headline (under 14 words) and a 2-sentence explanation of the top finding. Use ONLY numbers that appear above — never compute, round or invent new figures. Don't claim causes the statuses don't support; 'mixed' means signals disagree.",
+    "Write a headline (under 14 words) and an explanation of the top finding as 2-4 short point-form observations (one idea each, no paragraph). Use ONLY numbers that appear above — never compute, round or invent new figures. Don't claim causes the statuses don't support; 'mixed' means signals disagree.",
     "Every recommendation must be about Shorts — never advise making more long-form videos.",
     "Then write a short 'channel in one sentence' before/after contrast (`then` = what drove growth before, `now` = how the recent period drifted), each under 15 words, grounded in the data above.",
     "Then suggest 2-3 next Shorts ideas (vertical, under 3 minutes). Each idea needs a title, a qualitative trendRelevance and audienceFit (high/medium/low — never a percentage), and 2-3 hook-line variants (bold, relatable, curiosity) — each hook is the line spoken or shown in the first 1-2 seconds of the Short.",
     "The channel's video titles may be in any language (e.g. Tamil) — read them as given, but write your entire response in English.",
     "Return JSON with keys: headline, explanation, channelInOneSentence ({then, now}), ideas (array of {title, trendRelevance, audienceFit, hooks: [{style, line}]}).",
-    "Strict format rules: trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, explanation 600, then/now 200 each, idea title 120, hook line 140.",
+    "Strict format rules: explanation is a JSON array of 2-4 strings (point-form), not one string. trendRelevance and audienceFit must be exactly one of the lowercase strings \"high\", \"medium\", \"low\". Hook style must be exactly \"bold\", \"relatable\" or \"curiosity\". Length limits in characters: headline 140, each explanation point 200, then/now 200 each, idea title 120, hook line 140.",
   ].join("\n");
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -159,7 +161,7 @@ export async function generateDiagnosis(input: {
 
   // The LLM narrates; the evidence lines are always the deterministic ones. If the
   // narrative introduces a number that wasn't in the prompt, fall back to deterministic text.
-  const grounded = numbersAreGrounded(`${result.data.headline} ${result.data.explanation}`, prompt);
+  const grounded = numbersAreGrounded(`${result.data.headline} ${result.data.explanation.join(" ")}`, prompt);
   const narrative = grounded ? { headline: result.data.headline, explanation: result.data.explanation } : deterministicNarrative(analysis);
   if (!grounded) console.warn("[diagnosis] LLM narrative contained ungrounded numbers; using deterministic text.");
 

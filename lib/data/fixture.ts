@@ -71,7 +71,12 @@ export const demoDiagnosis: DiagnoseResponse = {
   channel: { title: "The Everyday Table", subscriberCount: 128400, recentShortsPerWeek: 3, shortsAnalysed: 142, enoughShorts: true },
   diagnosis: {
     headline: "Your Shorts drifted away from the dinners that built your audience.",
-    explanation: "Weeknight-dinner Shorts are why viewers subscribe. Your recent Shorts chase quick snacks and trends — they still get views, but far fewer new subscribers. The opportunity is to bring your Shorts back to the dinners people follow you for.",
+    explanation: [
+      "Weeknight-dinner Shorts are why viewers subscribe.",
+      "Your recent Shorts chase quick snacks and trends instead.",
+      "Those still get views, but far fewer new subscribers.",
+      "The opportunity is to bring your Shorts back to the dinners people follow you for.",
+    ],
     evidence: [
       "Shorts on proven topics (weeknight, dinner): 75 → 30 % of Shorts",
       "Subscribers per 1k views: proven-topic vs other Shorts: 2.3 → 5.2 per 1k views (other → proven)",
